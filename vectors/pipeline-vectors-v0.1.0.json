@@ -1,0 +1,205 @@
+{
+  "_meta": {
+    "title": "AxonOS Signal Pipeline — Conformance Test Vectors",
+    "artifact": "pipeline-core type-contract conformance",
+    "vector_version": "0.1.0",
+    "producer": "axonos-signal-pipeline",
+    "consumer": "any implementation of docs/PIPELINE_CONTRACT.md",
+    "maintainer": "The AxonOS Project <connect@axonos.org>",
+    "security_contact": "security@axonos.org",
+    "license": "CC0-1.0",
+    "status": "pre-clinical engineering artifact; not a medical device",
+    "date": "2026-06-10",
+    "notes": [
+      "Consumed by crates/axonos-pipeline-core/tests/conformance.rs via the",
+      "generated tests/data/vectors.rs (kept in sync by tools/validate_vectors.py).",
+      "vector_version is the version of THIS vector set and is independent of",
+      "the crate version. Any change to vectors or fixtures requires re-running",
+      "tools/gen_test_vectors.py and committing all outputs together with the",
+      "regenerated vectors/SHA256SUMS (atomic-update rule)."
+    ]
+  },
+  "fnv1a64": [
+    {
+      "id": "PV-FNV-001",
+      "input_utf8": "",
+      "digest": "0xcbf29ce484222325"
+    },
+    {
+      "id": "PV-FNV-002",
+      "input_utf8": "a",
+      "digest": "0xaf63dc4c8601ec8c"
+    },
+    {
+      "id": "PV-FNV-003",
+      "input_utf8": "axonos",
+      "digest": "0xc141163b4c93c297"
+    },
+    {
+      "id": "PV-FNV-004",
+      "input_utf8": "AxonOS Signal Pipeline",
+      "digest": "0x0d4530917509cb45"
+    }
+  ],
+  "frame_checksum": [
+    {
+      "id": "PV-FRAME-001",
+      "fixture": "fixtures/synthetic/frame-0001.json",
+      "algorithm": "docs/PIPELINE_CONTRACT.md §3 (FNV-1a 64, little-endian)",
+      "digest": "0x875af1b082c94a2d"
+    }
+  ],
+  "window_count": [
+    {
+      "id": "PV-WIN-001",
+      "samples_per_channel": 16,
+      "window": 16,
+      "hop": 1,
+      "expected": 1
+    },
+    {
+      "id": "PV-WIN-002",
+      "samples_per_channel": 16,
+      "window": 8,
+      "hop": 4,
+      "expected": 3
+    },
+    {
+      "id": "PV-WIN-003",
+      "samples_per_channel": 16,
+      "window": 4,
+      "hop": 4,
+      "expected": 4
+    },
+    {
+      "id": "PV-WIN-004",
+      "samples_per_channel": 1000,
+      "window": 250,
+      "hop": 125,
+      "expected": 7
+    },
+    {
+      "id": "PV-WIN-005",
+      "samples_per_channel": 16,
+      "window": 32,
+      "hop": 8,
+      "expected": null
+    },
+    {
+      "id": "PV-WIN-006",
+      "samples_per_channel": 16,
+      "window": 0,
+      "hop": 1,
+      "expected": null
+    },
+    {
+      "id": "PV-WIN-007",
+      "samples_per_channel": 16,
+      "window": 4,
+      "hop": 0,
+      "expected": null
+    }
+  ],
+  "artifact_scan": [
+    {
+      "id": "PV-ART-001",
+      "samples": [
+        0,
+        100,
+        -100,
+        950
+      ],
+      "threshold_counts": 1000,
+      "expected": "clean"
+    },
+    {
+      "id": "PV-ART-002",
+      "samples": [
+        0,
+        1500,
+        -2,
+        3
+      ],
+      "threshold_counts": 1000,
+      "expected": "amplitude_exceeded"
+    },
+    {
+      "id": "PV-ART-003",
+      "samples": [
+        8388607,
+        0,
+        1
+      ],
+      "threshold_counts": 1000,
+      "expected": "saturated"
+    },
+    {
+      "id": "PV-ART-004",
+      "samples": [
+        2000,
+        -8388608
+      ],
+      "threshold_counts": 1000,
+      "expected": "saturated"
+    },
+    {
+      "id": "PV-ART-005",
+      "samples": [
+        -1001,
+        0
+      ],
+      "threshold_counts": 1000,
+      "expected": "amplitude_exceeded"
+    }
+  ],
+  "mask_column_of": [
+    {
+      "id": "PV-MASK-001",
+      "mask_bits": "0x00ff",
+      "channel": 0,
+      "expected_column": 0
+    },
+    {
+      "id": "PV-MASK-002",
+      "mask_bits": "0x00ff",
+      "channel": 7,
+      "expected_column": 7
+    },
+    {
+      "id": "PV-MASK-003",
+      "mask_bits": "0x00ff",
+      "channel": 8,
+      "expected_column": null
+    },
+    {
+      "id": "PV-MASK-004",
+      "mask_bits": "0x00a5",
+      "channel": 0,
+      "expected_column": 0
+    },
+    {
+      "id": "PV-MASK-005",
+      "mask_bits": "0x00a5",
+      "channel": 2,
+      "expected_column": 1
+    },
+    {
+      "id": "PV-MASK-006",
+      "mask_bits": "0x00a5",
+      "channel": 5,
+      "expected_column": 2
+    },
+    {
+      "id": "PV-MASK-007",
+      "mask_bits": "0x00a5",
+      "channel": 7,
+      "expected_column": 3
+    },
+    {
+      "id": "PV-MASK-008",
+      "mask_bits": "0x00a5",
+      "channel": 1,
+      "expected_column": null
+    }
+  ]
+}

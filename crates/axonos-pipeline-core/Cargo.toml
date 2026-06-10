@@ -1,0 +1,13 @@
+[package]
+name = "axonos-pipeline-core"
+description = "Typed stage contract for the AxonOS reference BCI signal pipeline (no_std, zero-alloc, no unsafe)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["bci", "no-std", "signal", "neurotech", "pipeline"]
+categories = ["no-std", "science", "embedded"]
+
+[dependencies]

@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "AxonOS Signal Pipeline"
+abstract: >-
+  Reference deterministic BCI signal pipeline for AxonOS: the typed stage
+  contract from raw acquisition frame to a pipeline-terminal classifier
+  decision, with language-neutral conformance vectors. Pre-clinical
+  engineering artifact; not a medical device.
+type: software
+version: 0.1.0
+date-released: "2026-06-10"
+license: "Apache-2.0 OR MIT"
+repository-code: "https://github.com/AxonOS-org/axonos-signal-pipeline"
+url: "https://axonos.org"
+authors:
+  - name: "The AxonOS Project"
+    website: "https://axonos.org"
+  - family-names: "Yermakou"
+    given-names: "Denis"
+keywords:
+  - brain-computer-interface
+  - signal-processing
+  - rust
+  - no-std
+  - neurotechnology
+  - determinism

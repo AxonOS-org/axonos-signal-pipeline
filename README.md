@@ -1,0 +1,140 @@
+# AxonOS Signal Pipeline
+
+**Reference deterministic BCI signal pipeline for AxonOS.**
+
+This repository defines the executable path from a raw acquisition frame to a
+typed, consent-bound decision:
+
+```text
+RawFrame -> Epoch -> (DSP) -> FeatureVector -> ClassifierDecision
+                                                     |
+                          kernel boundary: canonical IntentObservation
+                          (RFC-0006 §4) under consent gating
+```
+
+The design rule is strict:
+
+> **Raw neural data must never cross the application boundary.**
+
+Inside the pipeline, code may stream raw samples. At the boundary, only the
+pipeline-terminal [`ClassifierDecision`] is permitted to leave; the AxonOS
+kernel converts it into the project's canonical `IntentObservation` wire type
+under consent gating. This crate deliberately does **not** redefine that wire
+type — see [Relationship to other AxonOS repositories](#relationship-to-other-axonos-repositories).
+
+This repository is **not a clinical system, not a medical device, and not a
+claim of measured performance.** It is a reference implementation and test
+surface for the AxonOS signal-processing contract. See
+[`docs/CLAIMS.md`](docs/CLAIMS.md) for exactly what is and is not asserted.
+
+## Status
+
+`axonos-pipeline-core` v0.1.0 — the **type contract and conformance surface**.
+The numeric DSP, feature, and classifier stages are typed placeholders at this
+version; each is introduced behind conformance vectors on the roadmap below.
+
+| Version | Scope | State |
+|---|---|---|
+| **v0.1.0** | Type contract: `RawFrame`, `Epoch`, `ChannelMask`, `SampleRate`, `ArtifactFlag`, `FeatureVector` (placeholder), `ClassifierDecision`, sealed application boundary, FNV-1a frame checksum, synthetic fixtures, conformance vectors | **current** |
+| v0.2.0 | DSP stages: DC removal, bandpass, notch, integrated artifact detector, epoch windowing pipeline | planned |
+| v0.3.0 | Features: covariance, log-variance, CSP placeholder, fixed-point path | planned |
+| v0.4.0 | Classifier: LDA baseline, MDM baseline, confidence score, abstain / no-intent | planned |
+| v0.5.0 | Calibration: Euclidean Alignment, session mean, drift update, ZeroCalib skeleton | planned |
+
+Each stage ships only once it is covered by conformance vectors and the
+validation gates in [`docs/VALIDATION_PLAN.md`](docs/VALIDATION_PLAN.md). No
+stage advertises accuracy, latency, or power figures in this repository.
+
+## Properties
+
+- `#![no_std]`, allocation-free on the data path.
+- `#![forbid(unsafe_code)]`.
+- **Zero dependencies** (no runtime *or* dev dependencies), so the conformance
+  surface is fully reproducible from a stock toolchain.
+- Deterministic: every behavioural claim is pinned by a vector in
+  [`vectors/`](vectors/) and exercised from
+  [`crates/axonos-pipeline-core/tests/conformance.rs`](crates/axonos-pipeline-core/tests/conformance.rs).
+
+## Layout
+
+```text
+axonos-signal-pipeline/
+├── crates/
+│   └── axonos-pipeline-core/   # the typed stage contract (this release)
+├── fixtures/
+│   └── synthetic/              # deterministic, license-free sample frames
+├── vectors/
+│   ├── pipeline-vectors-v0.1.0.json
+│   └── SHA256SUMS              # integrity manifest for the vector artifacts
+├── tools/                      # Python (stdlib-only) generator + CI gates
+└── docs/                       # contract, claims, limitations, boundary, plan
+```
+
+## Quick start
+
+```bash
+# Rust: build, lint, and run the conformance tests
+cargo test --workspace
+
+# Conformance artifacts must be exactly reproducible from their generator
+python3 tools/validate_vectors.py
+
+# Repository hygiene (no private contact metadata)
+python3 tools/check_hygiene.py
+```
+
+`axonos-pipeline-core` also builds for bare-metal targets, e.g.:
+
+```bash
+rustup target add thumbv7em-none-eabihf
+cargo build -p axonos-pipeline-core --target thumbv7em-none-eabihf
+```
+
+## Conformance vectors
+
+[`vectors/pipeline-vectors-v0.1.0.json`](vectors/pipeline-vectors-v0.1.0.json)
+is the language-neutral definition of v0.1.0 behaviour: FNV-1a anchors, the
+fixture frame checksum, window-count cases, artifact-scan cases, and
+channel-mask column mappings. It is produced by
+[`tools/gen_test_vectors.py`](tools/gen_test_vectors.py), which is the single
+source of truth; the Rust test data in
+`crates/axonos-pipeline-core/tests/data/vectors.rs` is generated from the same
+run and kept byte-identical by CI.
+
+**Atomic-update rule.** Any change to a vector or fixture requires re-running
+the generator and committing *all* of its outputs — including a regenerated
+[`vectors/SHA256SUMS`](vectors/SHA256SUMS) — in the **same commit**. CI fails
+otherwise. The `vector_version` is the version of the vector set and is
+independent of the crate version.
+
+## Relationship to other AxonOS repositories
+
+| Concern | Where it lives |
+|---|---|
+| Canonical `IntentObservation` wire type (RFC-0006 §4) | `axonos-intent` crate in [`AxonOS-org/axonos-kernel`](https://github.com/AxonOS-org/axonos-kernel) |
+| Consent gating of intent at the boundary | [`AxonOS-org/axonos-consent`](https://github.com/AxonOS-org/axonos-consent) |
+| Application / host SDK consuming `IntentObservation` | [`AxonOS-org/axonos-sdk`](https://github.com/AxonOS-org/axonos-sdk) |
+| Normative specifications | [`AxonOS-org/axonos-rfcs`](https://github.com/AxonOS-org/axonos-rfcs), [`AxonOS-org/axonos-standard`](https://github.com/AxonOS-org/axonos-standard) |
+
+This repository owns the **signal → decision** path only. It stops at
+`ClassifierDecision`; the kernel owns the consent-gated conversion to the
+canonical `IntentObservation`. Keeping a single wire type avoids divergence —
+the pipeline is one organ of the larger system, not a parallel one.
+
+## Licensing
+
+- **Code** (everything under `crates/` and `tools/`): dual-licensed
+  **Apache-2.0 OR MIT** — see [`LICENSE-APACHE`](LICENSE-APACHE) and
+  [`LICENSE-MIT`](LICENSE-MIT).
+- **Conformance vectors and synthetic fixtures** (`vectors/`, `fixtures/`):
+  dedicated to the public domain under **CC0-1.0** — see
+  [`vectors/README.md`](vectors/README.md).
+
+## Security
+
+Please report vulnerabilities privately per [`SECURITY.md`](SECURITY.md)
+(security@axonos.org). Do not open public issues for security reports.
+
+---
+
+The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org · github.com/AxonOS-org
