@@ -1,6 +1,6 @@
 # Calibration (design note — scheduled v0.5.0)
 
-Calibration is **not implemented** in v0.1.0. This note records the intended
+Calibration is **not implemented** in v0.2.4. This note records the intended
 contract so the type surface added earlier does not contradict it later.
 
 ## Goal

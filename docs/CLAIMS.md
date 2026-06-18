@@ -1,4 +1,4 @@
-# Claims and Evidence Levels (v0.1.0)
+# Claims and Evidence Levels (v0.2.4)
 
 AxonOS separates claims by the strength of evidence behind them. This
 repository asserts **only** machine-checkable (L1) claims. It does not assert
@@ -20,7 +20,7 @@ nothing here should be read as a clinical or regulatory statement.
 
 1. **Determinism.** Every behavioural rule in
    [`PIPELINE_CONTRACT.md`](PIPELINE_CONTRACT.md) is pinned by a vector in
-   `vectors/pipeline-vectors-v0.1.0.json` and exercised by
+   `vectors/pipeline-vectors-v0.2.4.json` and exercised by
    `crates/axonos-pipeline-core/tests/conformance.rs`. The vectors are exactly
    reproducible from `tools/gen_test_vectors.py` (checked by
    `tools/validate_vectors.py` and an integrity manifest).
@@ -33,13 +33,21 @@ nothing here should be read as a clinical or regulatory statement.
 4. **Build constraints.** The crate is `#![no_std]` (outside tests),
    `#![forbid(unsafe_code)]`, `#![deny(missing_docs)]`, and has **zero**
    dependencies (runtime and dev). CI builds it for a bare-metal target.
+5. **Deterministic integer DSP.** The DC mean-removal and fixed-point FIR
+   primitives are integer-only (defined truncation, arithmetic shift, rounding,
+   and saturation) and therefore bit-exact across platforms. Their behaviour is
+   pinned by the `dc_remove` and `fir` vectors and reproduced in
+   `tests/conformance.rs`.
 
 ## What is explicitly NOT claimed here
 
-- No classification accuracy of any kind. The v0.1.0 classifier type is a
+- No classification accuracy of any kind. The v0.2.4 classifier type is a
   decision **container**; there is no trained model in this repository.
 - No latency, jitter, throughput, or power figure.
 - No hardware-compatibility claim beyond "builds for the listed targets".
+- No validated filter design. `fir` is a generic fixed-point convolution
+  engine; no band-pass, notch, or frequency-response property is claimed, and
+  the example coefficients used in tests are illustrative only.
 - No clinical validation, no patient data, no regulatory clearance. This is a
   pre-clinical engineering artifact, **not a medical device**.
 

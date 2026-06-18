@@ -2,21 +2,23 @@
   "_meta": {
     "title": "AxonOS Signal Pipeline — Conformance Test Vectors",
     "artifact": "pipeline-core type-contract conformance",
-    "vector_version": "0.1.0",
+    "vector_version": "0.2.4",
     "producer": "axonos-signal-pipeline",
     "consumer": "any implementation of docs/PIPELINE_CONTRACT.md",
     "maintainer": "The AxonOS Project <connect@axonos.org>",
     "security_contact": "security@axonos.org",
     "license": "CC0-1.0",
     "status": "pre-clinical engineering artifact; not a medical device",
-    "date": "2026-06-10",
+    "date": "2026-06-18",
     "notes": [
       "Consumed by crates/axonos-pipeline-core/tests/conformance.rs via the",
       "generated tests/data/vectors.rs (kept in sync by tools/validate_vectors.py).",
       "vector_version is the version of THIS vector set and is independent of",
       "the crate version. Any change to vectors or fixtures requires re-running",
       "tools/gen_test_vectors.py and committing all outputs together with the",
-      "regenerated vectors/SHA256SUMS (atomic-update rule)."
+      "regenerated vectors/SHA256SUMS (atomic-update rule).",
+      "DSP sections (dc_remove, fir) are integer fixed-point and bit-exact;",
+      "see docs/PIPELINE_CONTRACT.md §9."
     ]
   },
   "fnv1a64": [
@@ -200,6 +202,184 @@
       "mask_bits": "0x00a5",
       "channel": 1,
       "expected_column": null
+    }
+  ],
+  "dc_remove": [
+    {
+      "id": "PV-DC-001",
+      "input": [
+        10,
+        20,
+        30,
+        40
+      ],
+      "mean_removed": 25,
+      "expected": [
+        -15,
+        -5,
+        5,
+        15
+      ]
+    },
+    {
+      "id": "PV-DC-002",
+      "input": [
+        -7,
+        0
+      ],
+      "mean_removed": -3,
+      "expected": [
+        -4,
+        3
+      ]
+    },
+    {
+      "id": "PV-DC-003",
+      "input": [
+        5
+      ],
+      "mean_removed": 5,
+      "expected": [
+        0
+      ]
+    },
+    {
+      "id": "PV-DC-004",
+      "input": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean_removed": 0,
+      "expected": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "PV-DC-005",
+      "input": [
+        -100,
+        -100,
+        -100
+      ],
+      "mean_removed": -100,
+      "expected": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "PV-DC-006",
+      "input": [
+        2147483647,
+        2147483647,
+        -2147483648
+      ],
+      "mean_removed": 715827882,
+      "expected": [
+        1431655765,
+        1431655765,
+        -2147483648
+      ]
+    }
+  ],
+  "fir": [
+    {
+      "id": "PV-FIR-001",
+      "input": [
+        4,
+        8,
+        12,
+        16
+      ],
+      "coeffs": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "shift": 2,
+      "expected": [
+        1,
+        3,
+        6,
+        10
+      ]
+    },
+    {
+      "id": "PV-FIR-002",
+      "input": [
+        1,
+        2,
+        3
+      ],
+      "coeffs": [
+        1
+      ],
+      "shift": 0,
+      "expected": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": "PV-FIR-003",
+      "input": [
+        -4,
+        -8,
+        -12,
+        -16
+      ],
+      "coeffs": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "shift": 2,
+      "expected": [
+        -1,
+        -3,
+        -6,
+        -10
+      ]
+    },
+    {
+      "id": "PV-FIR-004",
+      "input": [
+        100,
+        -100,
+        50
+      ],
+      "coeffs": [
+        2,
+        -1
+      ],
+      "shift": 1,
+      "expected": [
+        100,
+        -150,
+        100
+      ]
+    },
+    {
+      "id": "PV-FIR-005",
+      "input": [
+        2000
+      ],
+      "coeffs": [
+        2000000
+      ],
+      "shift": 0,
+      "expected": [
+        2147483647
+      ]
     }
   ]
 }

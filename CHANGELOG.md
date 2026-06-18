@@ -4,6 +4,46 @@ All notable changes to this project are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] - 2026-06-18
+
+Adds the first deterministic DSP primitives behind conformance vectors, and
+fixes the lint that was failing CI.
+
+### Added
+
+- Deterministic integer DSP in `axonos-pipeline-core::dsp`:
+  - `remove_mean` — DC (mean) removal; mean truncated toward zero, saturating
+    subtraction.
+  - `fir` — causal fixed-point FIR engine (i64 accumulator, arithmetic shift,
+    round-half-up, i32 saturation); a generic convolution engine with **no**
+    filter-design or frequency-response claim.
+  - `MAX_FIR_SHIFT` constant.
+- DSP error variants on `PipelineError`: `EmptyInput`, `EmptyKernel`,
+  `OutputLengthMismatch`, `InvalidShift`.
+- DSP conformance vectors (`dc_remove`, `fir`) in
+  `vectors/pipeline-vectors-v0.2.4.json`, with matching `tests/conformance.rs`
+  cases and generated test data; vector set is now `vector_version` `0.2.4`.
+- `docs/PIPELINE_CONTRACT.md` §9 — normative DSP arithmetic.
+
+### Fixed
+
+- Clippy `needless_lifetimes` on `RawFrame::epochs` (lifetime now elided),
+  which had been failing `clippy -D warnings` in CI.
+
+### Changed
+
+- README, CLAIMS, LIMITATIONS, and VALIDATION_PLAN updated to describe the
+  shipped DSP primitives and to state explicitly that no band-pass, notch, or
+  frequency-response behaviour is claimed.
+
+### Notes
+
+- DSP is integer fixed-point and bit-exact; no accuracy, latency, or power
+  figure is claimed. The pipeline terminates at `ClassifierDecision`;
+  conversion to the canonical `IntentObservation` and its consent gating remain
+  in `axonos-kernel` / `axonos-consent`. Pre-clinical engineering artifact;
+  not a medical device.
+
 ## [0.1.0] - 2026-06-10
 
 Initial release: the type contract and conformance surface for the AxonOS
@@ -38,6 +78,7 @@ reference signal pipeline.
   vectors on the roadmap (v0.2.0–v0.5.0). No accuracy, latency, or power
   figure is claimed. Pre-clinical engineering artifact; not a medical device.
 
+[0.2.4]: https://github.com/AxonOS-org/axonos-signal-pipeline/releases/tag/v0.2.4
 [0.1.0]: https://github.com/AxonOS-org/axonos-signal-pipeline/releases/tag/v0.1.0
 
 ---

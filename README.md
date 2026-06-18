@@ -29,14 +29,15 @@ surface for the AxonOS signal-processing contract. See
 
 ## Status
 
-`axonos-pipeline-core` v0.1.0 — the **type contract and conformance surface**.
-The numeric DSP, feature, and classifier stages are typed placeholders at this
-version; each is introduced behind conformance vectors on the roadmap below.
+`axonos-pipeline-core` v0.2.4 — the **type contract, conformance surface, and
+first deterministic DSP primitives** (integer DC removal and a fixed-point FIR
+engine). The feature, classifier, and calibration stages remain typed
+placeholders; each is introduced behind conformance vectors on the roadmap below.
 
 | Version | Scope | State |
 |---|---|---|
-| **v0.1.0** | Type contract: `RawFrame`, `Epoch`, `ChannelMask`, `SampleRate`, `ArtifactFlag`, `FeatureVector` (placeholder), `ClassifierDecision`, sealed application boundary, FNV-1a frame checksum, synthetic fixtures, conformance vectors | **current** |
-| v0.2.0 | DSP stages: DC removal, bandpass, notch, integrated artifact detector, epoch windowing pipeline | planned |
+| v0.1.0 | Type contract: `RawFrame`, `Epoch`, `ChannelMask`, `SampleRate`, `ArtifactFlag`, `FeatureVector` (placeholder), `ClassifierDecision`, sealed application boundary, FNV-1a frame checksum, synthetic fixtures, conformance vectors | shipped |
+| **v0.2.4** | Deterministic integer DSP primitives: DC (mean) removal and a fixed-point FIR engine, with a typed DSP error model and bit-exact `dc_remove` / `fir` conformance vectors | **current** |
 | v0.3.0 | Features: covariance, log-variance, CSP placeholder, fixed-point path | planned |
 | v0.4.0 | Classifier: LDA baseline, MDM baseline, confidence score, abstain / no-intent | planned |
 | v0.5.0 | Calibration: Euclidean Alignment, session mean, drift update, ZeroCalib skeleton | planned |
@@ -64,7 +65,7 @@ axonos-signal-pipeline/
 ├── fixtures/
 │   └── synthetic/              # deterministic, license-free sample frames
 ├── vectors/
-│   ├── pipeline-vectors-v0.1.0.json
+│   ├── pipeline-vectors-v0.2.4.json
 │   └── SHA256SUMS              # integrity manifest for the vector artifacts
 ├── tools/                      # Python (stdlib-only) generator + CI gates
 └── docs/                       # contract, claims, limitations, boundary, plan
@@ -92,10 +93,10 @@ cargo build -p axonos-pipeline-core --target thumbv7em-none-eabihf
 
 ## Conformance vectors
 
-[`vectors/pipeline-vectors-v0.1.0.json`](vectors/pipeline-vectors-v0.1.0.json)
-is the language-neutral definition of v0.1.0 behaviour: FNV-1a anchors, the
-fixture frame checksum, window-count cases, artifact-scan cases, and
-channel-mask column mappings. It is produced by
+[`vectors/pipeline-vectors-v0.2.4.json`](vectors/pipeline-vectors-v0.2.4.json)
+is the language-neutral definition of v0.2.4 behaviour: FNV-1a anchors, the
+fixture frame checksum, window-count cases, artifact-scan cases, channel-mask
+column mappings, and the DSP cases (`dc_remove`, `fir`). It is produced by
 [`tools/gen_test_vectors.py`](tools/gen_test_vectors.py), which is the single
 source of truth; the Rust test data in
 `crates/axonos-pipeline-core/tests/data/vectors.rs` is generated from the same

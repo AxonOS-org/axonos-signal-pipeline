@@ -18,6 +18,14 @@ pub enum PipelineError {
     InvalidThreshold,
     /// Confidence exceeds 1000 permille.
     InvalidConfidence,
+    /// A DSP input buffer is empty.
+    EmptyInput,
+    /// A filter kernel has no coefficients.
+    EmptyKernel,
+    /// An output buffer length does not match the input length.
+    OutputLengthMismatch,
+    /// A fixed-point shift amount is out of range (must be `0..=31`).
+    InvalidShift,
 }
 
 impl fmt::Display for PipelineError {
@@ -31,6 +39,10 @@ impl fmt::Display for PipelineError {
             Self::WindowTooLarge => "window exceeds samples per channel",
             Self::InvalidThreshold => "artifact threshold must be positive",
             Self::InvalidConfidence => "confidence exceeds 1000 permille",
+            Self::EmptyInput => "DSP input buffer is empty",
+            Self::EmptyKernel => "filter kernel has no coefficients",
+            Self::OutputLengthMismatch => "output buffer length does not match input length",
+            Self::InvalidShift => "fixed-point shift amount must be in 0..=31",
         };
         f.write_str(s)
     }

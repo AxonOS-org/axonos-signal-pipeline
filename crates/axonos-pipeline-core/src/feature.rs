@@ -1,10 +1,10 @@
-//! Fixed-dimension feature vector (v0.1.0 placeholder type).
+//! Fixed-dimension feature vector (v0.2.4 placeholder type).
 
 /// Dense feature vector of compile-time dimension `D`.
 ///
-/// `f32` is a v0.1.0 placeholder; the deterministic fixed-point path is
+/// `f32` is a v0.2.4 placeholder; the deterministic fixed-point path is
 /// scheduled for v0.3.0 (`docs/VALIDATION_PLAN.md`). Conformance vectors
-/// therefore checksum only integer sample data in v0.1.0.
+/// therefore checksum only integer sample data in v0.2.4.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FeatureVector<const D: usize> {
     values: [f32; D],
@@ -17,7 +17,6 @@ impl<const D: usize> FeatureVector<D> {
     }
 
     /// Feature dimension.
-    #[allow(clippy::len_without_is_empty)]
     pub const fn len(&self) -> usize {
         D
     }

@@ -1,14 +1,17 @@
-# Limitations (v0.1.0)
+# Limitations (v0.2.4)
 
 Read this before drawing any conclusion from this repository.
 
-## The numeric pipeline does not exist yet
+## The pipeline is still mostly a contract
 
-v0.1.0 is a **type contract and conformance surface**, not a working signal
-processor. Specifically:
+v0.2.4 adds the first deterministic DSP primitives, but most numeric stages are
+still unimplemented. Specifically:
 
-- There is **no** DSP. No DC removal, bandpass, or notch filtering is
-  implemented (roadmap v0.2.0).
+- DSP is **partial**. DC (mean) removal and a fixed-point FIR engine are
+  implemented and vector-pinned. There is **no** IIR filtering, and the crate
+  ships **no** validated band-pass or notch design — `fir` is a generic
+  convolution engine; coefficient design and frequency response are the
+  caller's responsibility (see `docs/CLAIMS.md`).
 - There is **no** feature extraction. `FeatureVector` is a placeholder type
   holding `f32` values; the deterministic fixed-point path is v0.3.0.
 - There is **no** classifier. `ClassifierDecision` is a typed container; no
@@ -32,10 +35,10 @@ processor. Specifically:
 
 ## Numerics
 
-- `FeatureVector` uses `f32` at v0.1.0; floating point is **not** part of any
-  deterministic conformance claim yet. v0.1.0 vectors checksum only integer
-  sample data. A fixed-point path is required before features become
-  conformance-pinned.
+- `FeatureVector` uses `f32` at v0.2.4; floating point is **not** part of any
+  deterministic conformance claim. The DSP primitives and all v0.2.4 vectors
+  are integer fixed-point. A fixed-point feature path is required before
+  features become conformance-pinned.
 
 ## Privacy boundary — what it does and does not guarantee
 

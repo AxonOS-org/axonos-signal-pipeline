@@ -64,11 +64,7 @@ pub struct EpochIter<'f, 'a> {
 
 impl<'a> RawFrame<'a> {
     /// Deterministic epoch iterator: `window` points every `hop` points.
-    pub fn epochs<'f>(
-        &'f self,
-        window: usize,
-        hop: usize,
-    ) -> Result<EpochIter<'f, 'a>, PipelineError> {
+    pub fn epochs(&self, window: usize, hop: usize) -> Result<EpochIter<'_, 'a>, PipelineError> {
         let total = window_count(self.samples_per_channel(), window, hop)?;
         // Touch the crate-private accessor so the raw path stays exercised
         // and visibly pipeline-internal.

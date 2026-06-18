@@ -3,7 +3,7 @@
 //! Typed stages of the AxonOS reference BCI signal pipeline:
 //!
 //! ```text
-//! RawFrame -> Epoch -> (DSP, planned) -> FeatureVector -> ClassifierDecision
+//! RawFrame -> Epoch -> DSP -> FeatureVector -> ClassifierDecision
 //!                                                              |
 //!                                  kernel boundary: canonical IntentObservation
 //!                                  (RFC-0006 §4, crate `axonos-intent`),
@@ -26,6 +26,7 @@ pub mod artifact;
 pub mod boundary;
 pub mod checksum;
 pub mod decision;
+pub mod dsp;
 pub mod epoch;
 pub mod error;
 pub mod feature;
@@ -36,6 +37,7 @@ pub mod rate;
 pub use artifact::{artifact_scan, ArtifactFlag, ADC24_MAX, ADC24_MIN};
 pub use checksum::{fnv1a_64, Fnv1a64, FNV_OFFSET_BASIS, FNV_PRIME};
 pub use decision::{ClassifierDecision, CONFIDENCE_MAX_PERMILLE};
+pub use dsp::{fir, remove_mean};
 pub use epoch::{window_count, Epoch, EpochIter};
 pub use error::PipelineError;
 pub use feature::FeatureVector;

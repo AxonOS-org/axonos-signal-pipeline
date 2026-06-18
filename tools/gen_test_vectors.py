@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Single source of truth for v0.1.0 conformance vectors.
+"""Single source of truth for v0.2.4 conformance vectors.
 
 Generates, deterministically and from first principles:
-  vectors/pipeline-vectors-v0.1.0.json
+  vectors/pipeline-vectors-v0.2.4.json
   fixtures/synthetic/frame-0001.json
   crates/axonos-pipeline-core/tests/data/vectors.rs
   vectors/SHA256SUMS   (covers the JSON artifacts above)
@@ -27,8 +27,8 @@ FNV_OFFSET = 0xCBF29CE484222325
 FNV_PRIME = 0x100000001B3
 MASK64 = (1 << 64) - 1
 
-VECTOR_VERSION = "0.1.0"
-DATE = "2026-06-10"
+VECTOR_VERSION = "0.2.4"
+DATE = "2026-06-18"
 
 # Fixture frame parameters (LCG: Numerical Recipes constants).
 SEED = 0x000A0510
@@ -41,6 +41,8 @@ RATE_HZ = 250
 CHANNEL_MASK = 0x00FF
 EPOCH_WINDOW, EPOCH_HOP = 4, 4
 ADC24_MAX, ADC24_MIN = 8_388_607, -8_388_608
+
+I32_MAX, I32_MIN = 2_147_483_647, -2_147_483_648
 
 
 def fnv1a64(data: bytes) -> int:
@@ -76,6 +78,40 @@ def window_count(n: int, w: int, h: int):
     return (n - w) // h + 1
 
 
+# --- DSP oracle (bit-exact mirror of crates/axonos-pipeline-core/src/dsp.rs) ---
+
+
+def sat_i32(value: int) -> int:
+    """Saturating narrow into the i32 sample range."""
+    return max(I32_MIN, min(I32_MAX, value))
+
+
+def trunc_div(a: int, b: int) -> int:
+    """Integer division truncated toward zero (matches Rust `i64 /`)."""
+    q = abs(a) // abs(b)
+    return -q if (a < 0) != (b < 0) else q
+
+
+def remove_mean(xs: list[int]):
+    """DC (mean) removal: returns (mean_removed, centred_samples)."""
+    mean = trunc_div(sum(xs), len(xs))
+    return mean, [sat_i32(x - mean) for x in xs]
+
+
+def fir(xs: list[int], coeffs: list[int], shift: int) -> list[int]:
+    """Causal FIR, zero initial state, i64 accumulator, round-half-up, saturated."""
+    bias = (1 << (shift - 1)) if shift >= 1 else 0
+    out = []
+    for n in range(len(xs)):
+        acc = 0
+        for k, c in enumerate(coeffs):
+            if n >= k:
+                acc += c * xs[n - k]
+        y = (acc + bias) >> shift if shift >= 1 else acc
+        out.append(sat_i32(y))
+    return out
+
+
 FNV_ANCHORS = [b"", b"a", b"axonos", b"AxonOS Signal Pipeline"]
 
 WINDOW_CASES = [
@@ -105,6 +141,27 @@ MASK_CASES = [
     (0x00A5, 5, 2),
     (0x00A5, 7, 3),
     (0x00A5, 1, None),
+]
+
+# DC removal: chosen to exercise truncation-toward-zero (asymmetry vs floor),
+# single element, all-zero, negative mean, and i32 saturation.
+DC_CASES = [
+    [10, 20, 30, 40],
+    [-7, 0],
+    [5],
+    [0, 0, 0, 0],
+    [-100, -100, -100],
+    [I32_MAX, I32_MAX, I32_MIN],
+]
+
+# FIR: moving-average rounding, identity, signed-shift on negatives, mixed
+# coefficients, and accumulator overflow forcing i32 saturation.
+FIR_CASES = [
+    ([4, 8, 12, 16], [1, 1, 1, 1], 2),
+    ([1, 2, 3], [1], 0),
+    ([-4, -8, -12, -16], [1, 1, 1, 1], 2),
+    ([100, -100, 50], [2, -1], 1),
+    ([2000], [2_000_000], 0),
 ]
 
 
@@ -181,6 +238,8 @@ def build() -> "OrderedDict[str, bytes]":
                     "the crate version. Any change to vectors or fixtures requires re-running",
                     "tools/gen_test_vectors.py and committing all outputs together with the",
                     "regenerated vectors/SHA256SUMS (atomic-update rule).",
+                    "DSP sections (dc_remove, fir) are integer fixed-point and bit-exact;",
+                    "see docs/PIPELINE_CONTRACT.md §9.",
                 ],
             ),
         ]
@@ -239,6 +298,29 @@ def build() -> "OrderedDict[str, bytes]":
         )
         for i, (bits, ch, col) in enumerate(MASK_CASES)
     ]
+    vectors["dc_remove"] = [
+        OrderedDict(
+            [
+                ("id", f"PV-DC-{i + 1:03d}"),
+                ("input", xs),
+                ("mean_removed", remove_mean(xs)[0]),
+                ("expected", remove_mean(xs)[1]),
+            ]
+        )
+        for i, xs in enumerate(DC_CASES)
+    ]
+    vectors["fir"] = [
+        OrderedDict(
+            [
+                ("id", f"PV-FIR-{i + 1:03d}"),
+                ("input", xs),
+                ("coeffs", c),
+                ("shift", sh),
+                ("expected", fir(xs, c, sh)),
+            ]
+        )
+        for i, (xs, c, sh) in enumerate(FIR_CASES)
+    ]
 
     def rs_i32_array(vals):
         lines, row = [], []
@@ -254,6 +336,9 @@ def build() -> "OrderedDict[str, bytes]":
     def rs_opt(v):
         return "None" if v is None else f"Some({v})"
 
+    def rs_slice(vals):
+        return "&[" + ", ".join(str(v) for v in vals) + "]"
+
     fnv_rows = "\n".join(
         f'    (b"{a.decode("ascii")}", 0x{fnv1a64(a):016x}),' for a in FNV_ANCHORS
     )
@@ -267,6 +352,14 @@ def build() -> "OrderedDict[str, bytes]":
     )
     mask_rows = "\n".join(
         f"    (0x{bits:04x}, {ch}, {rs_opt(col)})," for (bits, ch, col) in MASK_CASES
+    )
+    dc_rows = "\n".join(
+        f"    ({rs_slice(xs)}, {remove_mean(xs)[0]}, {rs_slice(remove_mean(xs)[1])}),"
+        for xs in DC_CASES
+    )
+    fir_rows = "\n".join(
+        f"    ({rs_slice(xs)}, {rs_slice(c)}, {sh}, {rs_slice(fir(xs, c, sh))}),"
+        for (xs, c, sh) in FIR_CASES
     )
 
     data_rs = f"""// @generated by tools/gen_test_vectors.py from
@@ -302,10 +395,18 @@ const ARTIFACT_CASES: &[(&[i32], i32, u8)] = &[
 const MASK_CASES: &[(u16, u8, Option<usize>)] = &[
 {mask_rows}
 ];
+
+const DC_CASES: &[(&[i32], i32, &[i32])] = &[
+{dc_rows}
+];
+
+const FIR_CASES: &[(&[i32], &[i32], u32, &[i32])] = &[
+{fir_rows}
+];
 """
 
     out = OrderedDict()
-    out["vectors/pipeline-vectors-v0.1.0.json"] = (
+    out[f"vectors/pipeline-vectors-v{VECTOR_VERSION}.json"] = (
         json.dumps(vectors, indent=2, ensure_ascii=False) + "\n"
     ).encode()
     out["fixtures/synthetic/frame-0001.json"] = (
@@ -314,7 +415,10 @@ const MASK_CASES: &[(u16, u8, Option<usize>)] = &[
     out["crates/axonos-pipeline-core/tests/data/vectors.rs"] = data_rs.encode()
 
     sums = ""
-    for rel in ["vectors/pipeline-vectors-v0.1.0.json", "fixtures/synthetic/frame-0001.json"]:
+    for rel in [
+        f"vectors/pipeline-vectors-v{VECTOR_VERSION}.json",
+        "fixtures/synthetic/frame-0001.json",
+    ]:
         sums += hashlib.sha256(out[rel]).hexdigest() + "  " + rel + "\n"
     out["vectors/SHA256SUMS"] = sums.encode()
     return out
