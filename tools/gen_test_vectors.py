@@ -396,11 +396,14 @@ const MASK_CASES: &[(u16, u8, Option<usize>)] = &[
 {mask_rows}
 ];
 
-const DC_CASES: &[(&[i32], i32, &[i32])] = &[
+type DcCase = (&'static [i32], i32, &'static [i32]);
+type FirCase = (&'static [i32], &'static [i32], u32, &'static [i32]);
+
+const DC_CASES: &[DcCase] = &[
 {dc_rows}
 ];
 
-const FIR_CASES: &[(&[i32], &[i32], u32, &[i32])] = &[
+const FIR_CASES: &[FirCase] = &[
 {fir_rows}
 ];
 """
