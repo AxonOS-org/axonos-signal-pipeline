@@ -1,10 +1,10 @@
-//! Fixed-dimension feature vector (v0.2.4 placeholder type).
+//! Fixed-dimension feature vector (v0.3.0 placeholder type).
 
 /// Dense feature vector of compile-time dimension `D`.
 ///
-/// `f32` is a v0.2.4 placeholder; the deterministic fixed-point path is
-/// scheduled for v0.3.0 (`docs/VALIDATION_PLAN.md`). Conformance vectors
-/// therefore checksum only integer sample data in v0.2.4.
+/// `f32` is a v0.3.0 placeholder; the deterministic fixed-point path is
+/// scheduled for v0.4.0 (`docs/VALIDATION_PLAN.md`). Conformance vectors
+/// therefore checksum only integer sample data in v0.3.0.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FeatureVector<const D: usize> {
     values: [f32; D],

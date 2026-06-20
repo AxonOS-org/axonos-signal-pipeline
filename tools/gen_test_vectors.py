@@ -27,8 +27,8 @@ FNV_OFFSET = 0xCBF29CE484222325
 FNV_PRIME = 0x100000001B3
 MASK64 = (1 << 64) - 1
 
-VECTOR_VERSION = "0.2.4"
-DATE = "2026-06-18"
+VECTOR_VERSION = "0.3.0"
+DATE = "2026-06-20"
 
 # Fixture frame parameters (LCG: Numerical Recipes constants).
 SEED = 0x000A0510
@@ -112,6 +112,75 @@ def fir(xs: list[int], coeffs: list[int], shift: int) -> list[int]:
     return out
 
 
+# --- IIR filter oracle (bit-exact mirror of crates/.../src/filter.rs) ---
+
+BIQUAD_SHIFT = 15
+BIQUAD_BIAS = 1 << (BIQUAD_SHIFT - 1)
+DC_R_DEFAULT = 32604  # Q15 of 0.995
+
+
+def biquad_process(coeffs, xs):
+    """Direct-Form-I biquad; returns (output, final_state=(x1,x2,y1,y2))."""
+    b0, b1, b2, a1, a2 = coeffs
+    x1 = x2 = y1 = y2 = 0
+    out = []
+    for x in xs:
+        acc = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+        y = sat_i32((acc + BIQUAD_BIAS) >> BIQUAD_SHIFT)
+        x2, x1 = x1, x
+        y2, y1 = y1, y
+        out.append(y)
+    return out, (x1, x2, y1, y2)
+
+
+def biquad_state_hash(coeffs, state):
+    """FNV-1a 64 over [b0,b1,b2,a1,a2,x1,x2,y1,y2] as little-endian i32."""
+    buf = b"".join(struct.pack("<i", v) for v in (*coeffs, *state))
+    return fnv1a64(buf)
+
+
+def dc_process(r, xs):
+    """First-order DC blocker; returns (output, final_state=(x1,y1))."""
+    x1 = y1 = 0
+    out = []
+    for x in xs:
+        acc = ((x - x1) << BIQUAD_SHIFT) + r * y1
+        y = sat_i32((acc + BIQUAD_BIAS) >> BIQUAD_SHIFT)
+        x1, y1 = x, y
+        out.append(y)
+    return out, (x1, y1)
+
+
+def dc_state_hash(r, state):
+    """FNV-1a 64 over [r, x1, y1] as little-endian i32."""
+    buf = b"".join(struct.pack("<i", v) for v in (r, *state))
+    return fnv1a64(buf)
+
+
+# Q15 coefficient tables — identical to src/filter.rs (RBJ cookbook, computed
+# offline). Keyed by design label.
+BIQUAD_DESIGNS = {
+    "identity": (32768, 0, 0, 0, 0),
+    "notch_50hz_250": (32257, -19936, 32257, -19936, 31745),
+    "notch_50hz_500": (32450, -52505, 32450, -52505, 32132),
+    "notch_60hz_250": (32232, -4048, 32232, -4048, 31696),
+    "bandpass_motor_250": (6957, 0, -6957, -47759, 18854),
+    "bandpass_attention_250": (2980, 0, -2980, -58676, 26809),
+    "bandpass_safetywide_250": (10747, 0, -10747, -43487, 11274),
+}
+
+# Shared deterministic filter test signal in ADC counts: a +120000 DC offset
+# (exercises the DC blocker) plus impulses and a swing (exercise the biquads).
+FILTER_SIGNAL = [
+    120_000, 120_000, 1_120_000, 120_000, 120_000, -380_000, -380_000, 620_000,
+    620_000, 120_000, 920_000, -680_000, 320_000, -180_000, 120_000, 1_620_000,
+    -1_380_000, 120_000, 120_000, 420_000, -220_000, 120_000, 770_000, -530_000,
+    120_000, 120_000, 220_000, -3_040_00, 120_000, 8_388_607, -8_388_608, 120_000,
+]
+
+FRAME_RATES = (250, 500)  # rate annotation only; coefficients embed the design
+
+
 FNV_ANCHORS = [b"", b"a", b"axonos", b"AxonOS Signal Pipeline"]
 
 WINDOW_CASES = [
@@ -170,6 +239,14 @@ def build() -> "OrderedDict[str, bytes]":
     checksum = frame_checksum(
         SEQ, TIMESTAMP_US, RATE_HZ, CHANNEL_MASK, SAMPLES_PER_CHANNEL, samples
     )
+
+    # Filter vectors: run each design / the DC blocker once over FILTER_SIGNAL.
+    filter_biquad = []
+    for label, coeffs in BIQUAD_DESIGNS.items():
+        out, state = biquad_process(coeffs, FILTER_SIGNAL)
+        filter_biquad.append((label, coeffs, out, biquad_state_hash(coeffs, state)))
+    dc_out, dc_state = dc_process(DC_R_DEFAULT, FILTER_SIGNAL)
+    dc_hash = dc_state_hash(DC_R_DEFAULT, dc_state)
 
     fixture = OrderedDict(
         [
@@ -240,6 +317,8 @@ def build() -> "OrderedDict[str, bytes]":
                     "regenerated vectors/SHA256SUMS (atomic-update rule).",
                     "DSP sections (dc_remove, fir) are integer fixed-point and bit-exact;",
                     "see docs/PIPELINE_CONTRACT.md §9.",
+                    "Stateful IIR sections (dc_blocker, biquad) run over filter_signal;",
+                    "expected output and the post-run state_hash are pinned, see §9.3-§9.4.",
                 ],
             ),
         ]
@@ -321,6 +400,31 @@ def build() -> "OrderedDict[str, bytes]":
         )
         for i, (xs, c, sh) in enumerate(FIR_CASES)
     ]
+    vectors["filter_signal"] = FILTER_SIGNAL
+    vectors["biquad"] = [
+        OrderedDict(
+            [
+                ("id", f"PV-BIQ-{i + 1:03d}"),
+                ("design", label),
+                ("coeffs_q15", list(coeffs)),
+                ("input", "see filter_signal"),
+                ("expected", out),
+                ("state_hash", f"0x{shash:016x}"),
+            ]
+        )
+        for i, (label, coeffs, out, shash) in enumerate(filter_biquad)
+    ]
+    vectors["dc_blocker"] = [
+        OrderedDict(
+            [
+                ("id", "PV-DCB-001"),
+                ("r_q15", DC_R_DEFAULT),
+                ("input", "see filter_signal"),
+                ("expected", dc_out),
+                ("state_hash", f"0x{dc_hash:016x}"),
+            ]
+        )
+    ]
 
     def rs_i32_array(vals):
         lines, row = [], []
@@ -361,6 +465,13 @@ def build() -> "OrderedDict[str, bytes]":
         f"    ({rs_slice(xs)}, {rs_slice(c)}, {sh}, {rs_slice(fir(xs, c, sh))}),"
         for (xs, c, sh) in FIR_CASES
     )
+    filter_signal_rs = rs_i32_array(FILTER_SIGNAL)
+    biquad_rows = "\n".join(
+        f'    ("{label}", [{", ".join(map(str, coeffs))}], '
+        f"{rs_slice(out)}, 0x{shash:016x}),"
+        for (label, coeffs, out, shash) in filter_biquad
+    )
+    dc_blocker_rows = f"    ({DC_R_DEFAULT}, {rs_slice(dc_out)}, 0x{dc_hash:016x}),"
 
     data_rs = f"""// @generated by tools/gen_test_vectors.py from
 // vectors/pipeline-vectors-v{VECTOR_VERSION}.json — DO NOT EDIT.
@@ -405,6 +516,21 @@ const DC_CASES: &[DcCase] = &[
 
 const FIR_CASES: &[FirCase] = &[
 {fir_rows}
+];
+
+const FILTER_SIGNAL: &[i32] = &[
+{filter_signal_rs}
+];
+
+type BiquadCase = (&'static str, [i32; 5], &'static [i32], u64);
+type DcBlockerCase = (i32, &'static [i32], u64);
+
+const BIQUAD_CASES: &[BiquadCase] = &[
+{biquad_rows}
+];
+
+const DC_BLOCKER_CASES: &[DcBlockerCase] = &[
+{dc_blocker_rows}
 ];
 """
 

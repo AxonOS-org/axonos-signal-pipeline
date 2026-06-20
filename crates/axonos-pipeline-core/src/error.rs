@@ -26,6 +26,10 @@ pub enum PipelineError {
     OutputLengthMismatch,
     /// A fixed-point shift amount is out of range (must be `0..=31`).
     InvalidShift,
+    /// A sample rate has no tabulated filter design.
+    UnsupportedSampleRate,
+    /// A fixed-point filter coefficient is outside its valid range.
+    InvalidCoefficient,
 }
 
 impl fmt::Display for PipelineError {
@@ -43,6 +47,8 @@ impl fmt::Display for PipelineError {
             Self::EmptyKernel => "filter kernel has no coefficients",
             Self::OutputLengthMismatch => "output buffer length does not match input length",
             Self::InvalidShift => "fixed-point shift amount must be in 0..=31",
+            Self::UnsupportedSampleRate => "sample rate has no tabulated filter design",
+            Self::InvalidCoefficient => "fixed-point filter coefficient is out of range",
         };
         f.write_str(s)
     }

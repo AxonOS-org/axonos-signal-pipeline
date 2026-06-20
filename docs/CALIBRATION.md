@@ -1,6 +1,6 @@
-# Calibration (design note — scheduled v0.5.0)
+# Calibration (design note — scheduled v0.6.0)
 
-Calibration is **not implemented** in v0.2.4. This note records the intended
+Calibration is **not implemented** in v0.3.0. This note records the intended
 contract so the type surface added earlier does not contradict it later.
 
 ## Goal
@@ -8,7 +8,7 @@ contract so the type surface added earlier does not contradict it later.
 Reduce inter-session and inter-subject covariate shift before classification,
 and support a low-friction cold start.
 
-## Intended components (v0.5.0)
+## Intended components (v0.6.0)
 
 - **Euclidean Alignment (EA).** Whiten epoch covariance by the inverse square
   root of the session-mean covariance, so per-session statistics are
@@ -22,14 +22,14 @@ and support a low-friction cold start.
 ## Constraints carried from the contract
 
 - Every calibration step must be a **pure function of its declared inputs**
-  (the v0.5.0 falsifier in [`VALIDATION_PLAN.md`](VALIDATION_PLAN.md)).
-- The fixed-point path (v0.3.0) precedes calibration, so alignment runs on
+  (the v0.6.0 falsifier in [`VALIDATION_PLAN.md`](VALIDATION_PLAN.md)).
+- The fixed-point path (v0.4.0) precedes calibration, so alignment runs on
   deterministic features.
 - No calibration step may expose raw signal across the application boundary
   ([`PRIVACY_BOUNDARY.md`](PRIVACY_BOUNDARY.md)).
 
 This document will be replaced by a normative section of
-[`PIPELINE_CONTRACT.md`](PIPELINE_CONTRACT.md) when v0.5.0 lands.
+[`PIPELINE_CONTRACT.md`](PIPELINE_CONTRACT.md) when v0.6.0 lands.
 
 ---
 

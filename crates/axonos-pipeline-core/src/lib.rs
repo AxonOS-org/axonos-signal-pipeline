@@ -30,6 +30,7 @@ pub mod dsp;
 pub mod epoch;
 pub mod error;
 pub mod feature;
+pub mod filter;
 pub mod frame;
 pub mod mask;
 pub mod rate;
@@ -41,6 +42,10 @@ pub use dsp::{fir, remove_mean};
 pub use epoch::{window_count, Epoch, EpochIter};
 pub use error::PipelineError;
 pub use feature::FeatureVector;
+pub use filter::{
+    bandpass_coeffs, notch_coeffs, BandpassPreset, Biquad, BiquadCoeffs, DcBlocker, NotchMode,
+    BIQUAD_ONE, BIQUAD_SHIFT,
+};
 pub use frame::RawFrame;
 pub use mask::ChannelMask;
 pub use rate::SampleRate;

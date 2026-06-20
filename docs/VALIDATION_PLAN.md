@@ -26,9 +26,10 @@ gate for each roadmap version and the falsifiers that would invalidate it.
 |---|---|---|---|
 | **v0.1.0** | Type contract + conformance vectors | L1: all vectors reproduced; boundary sealed; build constraints hold | A toolchain that reproduces the generator but disagrees with a committed vector; a downstream impl of `BoundarySafe` for a raw type compiling |
 | **v0.2.4** (met) | DSP primitives: DC (mean) removal, fixed-point FIR | L1: `dc_remove` / `fir` vectors reproduced bit-for-bit (integer arithmetic, defined rounding/saturation) | A DSP output diverging from its pinned vector on any conformant build |
-| v0.3.0 | Features (fixed-point) | L1: covariance / log-variance vectors reproduced; no floating point on the data path | A feature value differing across two conformant builds for identical input |
-| v0.4.0 | Classifier (LDA/MDM) | L1: decision vectors reproduced for fixed model parameters and inputs; abstain behaviour pinned | Identical model + input producing two different `ClassifierDecision`s |
-| v0.5.0 | Calibration (EA, ZeroCalib) | L1: alignment transform vectors reproduced | A calibration step that is not a pure function of its declared inputs |
+| **v0.3.0** (met) | Stateful fixed-point IIR filter bank (DC blocker, notch, band-pass) | L1: `biquad` / `dc_blocker` vectors reproduced bit-for-bit; post-run `state_hash` pinned; unsupported sample rates rejected | A filter output or `state_hash` diverging from its pinned vector on any conformant build |
+| v0.4.0 | Features (fixed-point) | L1: covariance / log-variance vectors reproduced; no floating point on the data path | A feature value differing across two conformant builds for identical input |
+| v0.5.0 | Classifier (LDA/MDM) | L1: decision vectors reproduced for fixed model parameters and inputs; abstain behaviour pinned | Identical model + input producing two different `ClassifierDecision`s |
+| v0.6.0 | Calibration (EA, ZeroCalib) | L1: alignment transform vectors reproduced | A calibration step that is not a pure function of its declared inputs |
 
 ## Moving to L2 (measured)
 

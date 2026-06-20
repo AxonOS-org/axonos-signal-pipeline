@@ -1,22 +1,26 @@
-# Limitations (v0.2.4)
+# Limitations (v0.3.0)
 
 Read this before drawing any conclusion from this repository.
 
 ## The pipeline is still mostly a contract
 
-v0.2.4 adds the first deterministic DSP primitives, but most numeric stages are
-still unimplemented. Specifically:
+v0.3.0 adds a stateful fixed-point IIR filter bank on top of the v0.2.4 DSP
+primitives, but the feature, classifier, and calibration stages are still
+unimplemented. Specifically:
 
-- DSP is **partial**. DC (mean) removal and a fixed-point FIR engine are
-  implemented and vector-pinned. There is **no** IIR filtering, and the crate
-  ships **no** validated band-pass or notch design — `fir` is a generic
-  convolution engine; coefficient design and frequency response are the
-  caller's responsibility (see `docs/CLAIMS.md`).
+- DSP is **partial**. DC (mean) removal, a fixed-point FIR engine, and a
+  stateful fixed-point IIR filter bank (DC blocker, power-line notch, band-pass
+  presets) are implemented and vector-pinned. The IIR sections are
+  **engineering-demonstrator** designs — single second-order sections with **no**
+  certified frequency response and **no** clinical validation; `fir` remains a
+  generic convolution engine. Coefficient-design intent is documented in
+  [`DSP_SPEC.md`](DSP_SPEC.md); what is and is not claimed is in
+  [`CLAIMS.md`](CLAIMS.md).
 - There is **no** feature extraction. `FeatureVector` is a placeholder type
-  holding `f32` values; the deterministic fixed-point path is v0.3.0.
+  holding `f32` values; the deterministic fixed-point path is v0.4.0.
 - There is **no** classifier. `ClassifierDecision` is a typed container; no
-  model produces it in this repository (roadmap v0.4.0).
-- There is **no** calibration (Euclidean Alignment, ZeroCalib) — v0.5.0.
+  model produces it in this repository (roadmap v0.5.0).
+- There is **no** calibration (Euclidean Alignment, ZeroCalib) — v0.6.0.
 
 ## Scope boundaries
 
@@ -35,10 +39,10 @@ still unimplemented. Specifically:
 
 ## Numerics
 
-- `FeatureVector` uses `f32` at v0.2.4; floating point is **not** part of any
-  deterministic conformance claim. The DSP primitives and all v0.2.4 vectors
-  are integer fixed-point. A fixed-point feature path is required before
-  features become conformance-pinned.
+- `FeatureVector` uses `f32` at v0.3.0; floating point is **not** part of any
+  deterministic conformance claim. The DSP primitives, the IIR filter bank, and
+  all v0.3.0 vectors are integer fixed-point. A fixed-point feature path is
+  required before features become conformance-pinned.
 
 ## Privacy boundary — what it does and does not guarantee
 

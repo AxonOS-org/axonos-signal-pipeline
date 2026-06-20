@@ -7,7 +7,7 @@ abstract: >-
   decision, with language-neutral conformance vectors. Pre-clinical
   engineering artifact; not a medical device.
 type: software
-version: 0.2.4
+version: 0.3.0
 date-released: "2026-06-18"
 license: "Apache-2.0 OR MIT"
 repository-code: "https://github.com/AxonOS-org/axonos-signal-pipeline"

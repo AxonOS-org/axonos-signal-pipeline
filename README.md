@@ -29,18 +29,21 @@ surface for the AxonOS signal-processing contract. See
 
 ## Status
 
-`axonos-pipeline-core` v0.2.4 — the **type contract, conformance surface, and
-first deterministic DSP primitives** (integer DC removal and a fixed-point FIR
-engine). The feature, classifier, and calibration stages remain typed
-placeholders; each is introduced behind conformance vectors on the roadmap below.
+`axonos-pipeline-core` v0.3.0 — the **type contract, conformance surface,
+deterministic DSP primitives, and a stateful fixed-point IIR filter bank**
+(a DC blocker, power-line notch, and band-pass presets, alongside the integer
+mean-removal and FIR engines). The feature, classifier, and calibration stages
+remain typed placeholders; each is introduced behind conformance vectors on the
+roadmap below.
 
 | Version | Scope | State |
 |---|---|---|
 | v0.1.0 | Type contract: `RawFrame`, `Epoch`, `ChannelMask`, `SampleRate`, `ArtifactFlag`, `FeatureVector` (placeholder), `ClassifierDecision`, sealed application boundary, FNV-1a frame checksum, synthetic fixtures, conformance vectors | shipped |
-| **v0.2.4** | Deterministic integer DSP primitives: DC (mean) removal and a fixed-point FIR engine, with a typed DSP error model and bit-exact `dc_remove` / `fir` conformance vectors | **current** |
-| v0.3.0 | Features: covariance, log-variance, CSP placeholder, fixed-point path | planned |
-| v0.4.0 | Classifier: LDA baseline, MDM baseline, confidence score, abstain / no-intent | planned |
-| v0.5.0 | Calibration: Euclidean Alignment, session mean, drift update, ZeroCalib skeleton | planned |
+| v0.2.4 | Deterministic integer DSP primitives: DC (mean) removal and a fixed-point FIR engine, with a typed DSP error model and bit-exact `dc_remove` / `fir` conformance vectors | shipped |
+| **v0.3.0** | Stateful fixed-point IIR filter bank: a DC blocker, power-line notch (50/60 Hz), and band-pass presets (motor-intent / attention / safety-wide) over 250/500/1000 Hz, each with `step` / `process` / `reset` / `state_hash` and pinned `biquad` / `dc_blocker` vectors | **current** |
+| v0.4.0 | Features: covariance, log-variance, CSP placeholder, fixed-point path | planned |
+| v0.5.0 | Classifier: LDA baseline, MDM baseline, confidence score, abstain / no-intent | planned |
+| v0.6.0 | Calibration: Euclidean Alignment, session mean, drift update, ZeroCalib skeleton | planned |
 
 Each stage ships only once it is covered by conformance vectors and the
 validation gates in [`docs/VALIDATION_PLAN.md`](docs/VALIDATION_PLAN.md). No
@@ -65,7 +68,7 @@ axonos-signal-pipeline/
 ├── fixtures/
 │   └── synthetic/              # deterministic, license-free sample frames
 ├── vectors/
-│   ├── pipeline-vectors-v0.2.4.json
+│   ├── pipeline-vectors-v0.3.0.json
 │   └── SHA256SUMS              # integrity manifest for the vector artifacts
 ├── tools/                      # Python (stdlib-only) generator + CI gates
 └── docs/                       # contract, claims, limitations, boundary, plan
@@ -93,10 +96,12 @@ cargo build -p axonos-pipeline-core --target thumbv7em-none-eabihf
 
 ## Conformance vectors
 
-[`vectors/pipeline-vectors-v0.2.4.json`](vectors/pipeline-vectors-v0.2.4.json)
-is the language-neutral definition of v0.2.4 behaviour: FNV-1a anchors, the
+[`vectors/pipeline-vectors-v0.3.0.json`](vectors/pipeline-vectors-v0.3.0.json)
+is the language-neutral definition of v0.3.0 behaviour: FNV-1a anchors, the
 fixture frame checksum, window-count cases, artifact-scan cases, channel-mask
-column mappings, and the DSP cases (`dc_remove`, `fir`). It is produced by
+column mappings, the DSP cases (`dc_remove`, `fir`), and the stateful IIR
+filter cases (`biquad`, `dc_blocker`) over a shared `filter_signal`. It is
+produced by
 [`tools/gen_test_vectors.py`](tools/gen_test_vectors.py), which is the single
 source of truth; the Rust test data in
 `crates/axonos-pipeline-core/tests/data/vectors.rs` is generated from the same

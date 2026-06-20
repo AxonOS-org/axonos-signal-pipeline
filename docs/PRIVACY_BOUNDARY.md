@@ -9,7 +9,7 @@ separates the pipeline from application code, only a typed, consent-bound
 decision may pass. Applications never receive raw frames, epochs, or feature
 vectors.
 
-## How v0.2.4 enforces it
+## How v0.3.0 enforces it
 
 1. **Sealed marker trait.** `boundary::BoundarySafe` is sealed; only
    `ClassifierDecision` implements it. `RawFrame`, `Epoch`, and `FeatureVector`
