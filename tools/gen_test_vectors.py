@@ -27,7 +27,7 @@ FNV_OFFSET = 0xCBF29CE484222325
 FNV_PRIME = 0x100000001B3
 MASK64 = (1 << 64) - 1
 
-VECTOR_VERSION = "0.3.0"
+VECTOR_VERSION = "0.6.0"
 DATE = "2026-06-20"
 
 # Fixture frame parameters (LCG: Numerical Recipes constants).
@@ -234,6 +234,212 @@ FIR_CASES = [
 ]
 
 
+# --- Feature oracle (bit-exact mirror of crates/.../src/feature.rs) ---
+
+
+def isqrt_py(x: int) -> int:
+    return int(x) ** 0  # placeholder, replaced below
+
+
+def feat_isqrt(x: int) -> int:
+    import math
+    return math.isqrt(x)  # floor sqrt; matches the bit-by-bit i64 routine
+
+
+def feat_log2_q16(x: int) -> int:
+    if x == 0:
+        return 0
+    int_part = x.bit_length() - 1
+    if int_part <= 32:
+        m = x << (32 - int_part)
+    else:
+        m = x >> (int_part - 32)
+    result = int_part << 16
+    bit = 1 << 15
+    while bit > 0:
+        m = (m * m) >> 32
+        if m >= (1 << 33):
+            result += bit
+            m >>= 1
+        bit >>= 1
+    return result
+
+
+def feat_variance(xs: list[int]) -> int:
+    n = len(xs)
+    mean = trunc_div(sum(xs), n)
+    acc = sum((x - mean) ** 2 for x in xs)
+    return acc // n  # acc >= 0
+
+
+def feat_log_variance_q16(xs: list[int]) -> int:
+    return feat_log2_q16(feat_variance(xs))
+
+
+def feat_rms(xs: list[int]) -> int:
+    return feat_isqrt(feat_variance(xs))
+
+
+def feat_abs_mean(xs: list[int]) -> int:
+    n = len(xs)
+    return sum(abs(x) for x in xs) // n
+
+
+def feat_zero_crossings(xs: list[int]) -> int:
+    c = 0
+    for a, b in zip(xs, xs[1:]):
+        if (a < 0 and b > 0) or (a > 0 and b < 0):
+            c += 1
+    return c
+
+
+# --- Classifier oracle (bit-exact mirror of crates/.../src/classify.rs) ---
+
+CONF_MAX = 1000
+U64_MAX = (1 << 64) - 1
+I64_MIN, I64_MAX = -(1 << 63), (1 << 63) - 1
+
+
+def cls_distance_sq(feature, mean):
+    acc = sum((f - m) ** 2 for f, m in zip(feature, mean))
+    return min(acc, U64_MAX)
+
+
+def cls_classify_mdm(feature, class_means, abstain):
+    best, best_d, second_d = 0, U64_MAX, U64_MAX
+    for i, m in enumerate(class_means):
+        d = cls_distance_sq(feature, m)
+        if d < best_d:
+            second_d, best_d, best = best_d, d, i
+        elif d < second_d:
+            second_d = d
+    if best_d == 0 and second_d == 0:
+        conf = 0
+    else:
+        conf = ((second_d - best_d) * CONF_MAX) // (second_d + best_d)
+    conf &= 0xFFFF
+    if conf < abstain:
+        return ("NoIntent",)
+    return ("Intent", best & 0xFF, conf)
+
+
+def cls_lda_score(feature, weights, bias):
+    acc = bias + sum(f * w for f, w in zip(feature, weights))
+    return max(I64_MIN, min(I64_MAX, acc))
+
+
+def cls_classify_lda_binary(feature, weights, bias, band):
+    score = cls_lda_score(feature, weights, bias)
+    a = abs(score)
+    if a < band:
+        return ("NoIntent",), score
+    b = max(band, 1)
+    conf = ((a * CONF_MAX) // (a + b)) & 0xFFFF
+    cls = 1 if score >= 0 else 0
+    return ("Intent", cls, conf), score
+
+
+# --- Calibration oracle (bit-exact mirror of crates/.../src/calibrate.rs) ---
+
+WSHIFT = 16
+WONE = 1 << WSHIFT
+
+
+def cal_covariance(channels):
+    C = len(channels)
+    n = len(channels[0])
+    means = [trunc_div(sum(ch), n) for ch in channels]
+    out = [[0] * C for _ in range(C)]
+    for i in range(C):
+        for j in range(i, C):
+            acc = sum(
+                (channels[i][t] - means[i]) * (channels[j][t] - means[j])
+                for t in range(n)
+            )
+            v = trunc_div(acc, n)
+            out[i][j] = v
+            out[j][i] = v
+    return out
+
+
+def cal_sqrt_q16(x):
+    if x <= 0:
+        return 0
+    import math
+    return math.isqrt(x << WSHIFT)
+
+
+def cal_whiten_cholesky(r):
+    C = len(r)
+    a = [[r[i][j] << WSHIFT for j in range(C)] for i in range(C)]
+    l = [[0] * C for _ in range(C)]
+    for j in range(C):
+        diag = a[j][j]
+        for k in range(j):
+            diag -= (l[j][k] * l[j][k]) >> WSHIFT
+        if diag <= 0:
+            return None
+        ljj = cal_sqrt_q16(diag)
+        if ljj == 0:
+            return None
+        l[j][j] = ljj
+        for i in range(j + 1, C):
+            sm = a[i][j]
+            for k in range(j):
+                sm -= (l[i][k] * l[j][k]) >> WSHIFT
+            l[i][j] = trunc_div(sm << WSHIFT, ljj)
+    w = [[0] * C for _ in range(C)]
+    for col in range(C):
+        for i in range(C):
+            rhs = WONE if i == col else 0
+            for k in range(i):
+                rhs -= (l[i][k] * w[k][col]) >> WSHIFT
+            if l[i][i] == 0:
+                return None
+            w[i][col] = trunc_div(rhs << WSHIFT, l[i][i])
+    return w
+
+
+def cal_align(w, cov):
+    C = len(w)
+    tmp = [[sum(w[i][k] * cov[k][j] for k in range(C)) for j in range(C)] for i in range(C)]
+    out = [[sum((tmp[i][k] * w[j][k]) >> WSHIFT for k in range(C)) for j in range(C)] for i in range(C)]
+    return out
+
+
+# Deterministic feature/classifier/calibration test inputs.
+FEATURE_SIGNALS = [
+    [-2, -1, 0, 1, 2],
+    [100, -100, 100, -100, 100, -100],
+    [0, 0, 0, 0],
+    [8_388_607, -8_388_608, 0, 1000, -1000],
+    [5, 5, 5, 5, 5],
+    [-3, 7, -3, 7, -3, 7, -3],
+]
+LOG2_DIRECT = [0, 1, 2, 3, 256, 1000, 1 << 40]
+ISQRT_DIRECT = [0, 1, 2, 15, 16, 255, 256, 1_000_000, (1 << 48) - 1]
+
+MDM_CASES = [
+    ([90, 95], [[0, 0], [100, 100]], 0),
+    ([50, 0], [[0, 0], [100, 0]], 1),
+    ([10, 10, 10], [[0, 0, 0], [20, 20, 20], [10, 10, 11]], 100),
+    ([5, 5], [[5, 5]], 0),
+    ([1000, -1000], [[0, 0], [900, -900], [-900, 900]], 50),
+]
+LDA_CASES = [
+    ([10, 5], [2, -1], 0, 5),
+    ([1, 1], [1, -1], 0, 5),
+    ([-3, 2], [4, 1], -10, 3),
+    ([100, 100, 100], [1, 1, 1], -250, 20),
+]
+
+COV_2CH = [[-2, -1, 1, 2], [-2, -1, 1, 2]]
+COV_3CH = [[10, -10, 10, -10], [5, 5, -5, -5], [1, 2, 3, 4]]
+WHITEN_2X2 = [[4, 1], [1, 3]]
+WHITEN_3X3 = [[6, 2, 1], [2, 5, 2], [1, 2, 7]]
+WHITEN_NONPD = [[1, 2], [2, 1]]
+
+
 def build() -> "OrderedDict[str, bytes]":
     samples = lcg_samples(SEED, N_CHANNELS * SAMPLES_PER_CHANNEL)
     checksum = frame_checksum(
@@ -426,6 +632,100 @@ def build() -> "OrderedDict[str, bytes]":
         )
     ]
 
+    def _dec_json(dec):
+        if dec[0] == "NoIntent":
+            return "NoIntent"
+        return f"Intent(class={dec[1]}, confidence_permille={dec[2]})"
+
+    vectors["feature"] = [
+        OrderedDict(
+            [
+                ("id", f"PV-FEAT-{i + 1:03d}"),
+                ("signal", sig),
+                ("variance", feat_variance(sig)),
+                ("log_variance_q16", feat_log_variance_q16(sig)),
+                ("rms", feat_rms(sig)),
+                ("abs_mean", feat_abs_mean(sig)),
+                ("zero_crossings", feat_zero_crossings(sig)),
+            ]
+        )
+        for i, sig in enumerate(FEATURE_SIGNALS)
+    ]
+    vectors["log2_q16"] = [
+        OrderedDict(
+            [("id", f"PV-LOG2-{i + 1:03d}"), ("input", x), ("expected_q16", feat_log2_q16(x))]
+        )
+        for i, x in enumerate(LOG2_DIRECT)
+    ]
+    vectors["isqrt"] = [
+        OrderedDict(
+            [("id", f"PV-ISQRT-{i + 1:03d}"), ("input", x), ("expected", feat_isqrt(x))]
+        )
+        for i, x in enumerate(ISQRT_DIRECT)
+    ]
+    vectors["classify_mdm"] = [
+        OrderedDict(
+            [
+                ("id", f"PV-MDM-{i + 1:03d}"),
+                ("feature", feat),
+                ("class_means", means),
+                ("abstain_below_permille", ab),
+                ("expected", _dec_json(cls_classify_mdm(feat, means, ab))),
+            ]
+        )
+        for i, (feat, means, ab) in enumerate(MDM_CASES)
+    ]
+    vectors["classify_lda"] = [
+        OrderedDict(
+            [
+                ("id", f"PV-LDA-{i + 1:03d}"),
+                ("feature", feat),
+                ("weights", w),
+                ("bias", b),
+                ("score", cls_lda_score(feat, w, b)),
+                ("abstain_band", band),
+                ("expected", _dec_json(cls_classify_lda_binary(feat, w, b, band)[0])),
+            ]
+        )
+        for i, (feat, w, b, band) in enumerate(LDA_CASES)
+    ]
+    vectors["covariance"] = [
+        OrderedDict(
+            [("id", "PV-COV-001"), ("channels", COV_2CH), ("expected", cal_covariance(COV_2CH))]
+        ),
+        OrderedDict(
+            [("id", "PV-COV-002"), ("channels", COV_3CH), ("expected", cal_covariance(COV_3CH))]
+        ),
+    ]
+    _w2 = cal_whiten_cholesky(WHITEN_2X2)
+    _w3 = cal_whiten_cholesky(WHITEN_3X3)
+    vectors["whiten_cholesky"] = [
+        OrderedDict(
+            [
+                ("id", "PV-WHIT-001"),
+                ("reference", WHITEN_2X2),
+                ("whitener_q16", _w2),
+                ("align_q16", cal_align(_w2, WHITEN_2X2)),
+                ("note", "align(W,R) ~ identity*65536 (Q16); exact value pinned"),
+            ]
+        ),
+        OrderedDict(
+            [
+                ("id", "PV-WHIT-002"),
+                ("reference", WHITEN_3X3),
+                ("whitener_q16", _w3),
+                ("align_q16", cal_align(_w3, WHITEN_3X3)),
+            ]
+        ),
+        OrderedDict(
+            [
+                ("id", "PV-WHIT-003"),
+                ("reference", WHITEN_NONPD),
+                ("whitener_q16", None),
+                ("note", "not positive-definite -> None"),
+            ]
+        ),
+    ]
     def rs_i32_array(vals):
         lines, row = [], []
         for v in vals:
@@ -473,6 +773,38 @@ def build() -> "OrderedDict[str, bytes]":
     )
     dc_blocker_rows = f"    ({DC_R_DEFAULT}, {rs_slice(dc_out)}, 0x{dc_hash:016x}),"
 
+    def rs_mat(m):
+        return "[" + ", ".join("[" + ", ".join(str(v) for v in row) + "]" for row in m) + "]"
+
+    def rs_sos(lol):
+        return "&[" + ", ".join(rs_slice(x) for x in lol) + "]"
+
+    def _dec_rs(dec):
+        return "(-1, 0)" if dec[0] == "NoIntent" else f"({dec[1]}, {dec[2]})"
+
+    feature_rows = "\n".join(
+        f"    ({rs_slice(s)}, {feat_variance(s)}, {feat_log_variance_q16(s)}, "
+        f"{feat_rms(s)}, {feat_abs_mean(s)}, {feat_zero_crossings(s)}),"
+        for s in FEATURE_SIGNALS
+    )
+    log2_rows = "\n".join(f"    ({x}, {feat_log2_q16(x)})," for x in LOG2_DIRECT)
+    isqrt_rows = "\n".join(f"    ({x}, {feat_isqrt(x)})," for x in ISQRT_DIRECT)
+    mdm_rows = "\n".join(
+        f"    ({rs_slice(feat)}, {rs_sos(means)}, {ab}, "
+        f"{_dec_rs(cls_classify_mdm(feat, means, ab))[1:-1]}),"
+        for (feat, means, ab) in MDM_CASES
+    )
+    lda_rows = "\n".join(
+        f"    ({rs_slice(feat)}, {rs_slice(w)}, {b}, {cls_lda_score(feat, w, b)}, {band}, "
+        f"{_dec_rs(cls_classify_lda_binary(feat, w, b, band)[0])[1:-1]}),"
+        for (feat, w, b, band) in LDA_CASES
+    )
+    cov2 = cal_covariance(COV_2CH)
+    cov3 = cal_covariance(COV_3CH)
+    w2 = cal_whiten_cholesky(WHITEN_2X2)
+    w3 = cal_whiten_cholesky(WHITEN_3X3)
+    al2 = cal_align(w2, WHITEN_2X2)
+    al3 = cal_align(w3, WHITEN_3X3)
     data_rs = f"""// @generated by tools/gen_test_vectors.py from
 // vectors/pipeline-vectors-v{VECTOR_VERSION}.json — DO NOT EDIT.
 // CI re-generates and diffs this file (tools/validate_vectors.py).
@@ -532,6 +864,42 @@ const BIQUAD_CASES: &[BiquadCase] = &[
 const DC_BLOCKER_CASES: &[DcBlockerCase] = &[
 {dc_blocker_rows}
 ];
+
+type FeatureCase = (&'static [i32], u64, i32, u32, u32, u32);
+const FEATURE_CASES: &[FeatureCase] = &[
+{feature_rows}
+];
+
+const LOG2_CASES: &[(u64, i32)] = &[
+{log2_rows}
+];
+
+const ISQRT_CASES: &[(u64, u64)] = &[
+{isqrt_rows}
+];
+
+type MdmCase = (&'static [i32], &'static [&'static [i32]], u16, i32, u16);
+const MDM_CASES: &[MdmCase] = &[
+{mdm_rows}
+];
+
+type LdaCase = (&'static [i32], &'static [i32], i64, i64, i64, i32, u16);
+const LDA_CASES: &[LdaCase] = &[
+{lda_rows}
+];
+
+const COV_2CH_CH: &[&[i32]] = {rs_sos(COV_2CH)};
+const COV_2CH_EXPECT: [[i64; 2]; 2] = {rs_mat(cov2)};
+const COV_3CH_CH: &[&[i32]] = {rs_sos(COV_3CH)};
+const COV_3CH_EXPECT: [[i64; 3]; 3] = {rs_mat(cov3)};
+
+const WHITEN_2X2_R: [[i64; 2]; 2] = {rs_mat(WHITEN_2X2)};
+const WHITEN_2X2_W: [[i64; 2]; 2] = {rs_mat(w2)};
+const WHITEN_2X2_ALIGN: [[i64; 2]; 2] = {rs_mat(al2)};
+const WHITEN_3X3_R: [[i64; 3]; 3] = {rs_mat(WHITEN_3X3)};
+const WHITEN_3X3_W: [[i64; 3]; 3] = {rs_mat(w3)};
+const WHITEN_3X3_ALIGN: [[i64; 3]; 3] = {rs_mat(al3)};
+const WHITEN_NONPD_R: [[i64; 2]; 2] = {rs_mat(WHITEN_NONPD)};
 """
 
     out = OrderedDict()

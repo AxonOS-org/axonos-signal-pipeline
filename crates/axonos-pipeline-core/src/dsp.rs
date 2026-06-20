@@ -5,9 +5,9 @@
 //! language-neutral conformance vectors (`docs/CLAIMS.md`); floating point
 //! would not reproduce bit-for-bit between a generator oracle and every
 //! target, so the deterministic data path stays in integer arithmetic. The
-//! `f32` [`crate::feature::FeatureVector`] remains a non-conformance
-//! placeholder until the fixed-point feature path (see
-//! `docs/VALIDATION_PLAN.md`).
+//! fixed-point feature path now lives in [`crate::feature`]; the `f32`
+//! [`crate::feature::FeatureVector`] remains a legacy interop container outside
+//! any conformance claim (see `docs/VALIDATION_PLAN.md`).
 //!
 //! All functions are allocation-free and operate **per channel** on a
 //! contiguous sample buffer: the caller supplies the input samples and an

@@ -24,7 +24,9 @@
 
 pub mod artifact;
 pub mod boundary;
+pub mod calibrate;
 pub mod checksum;
+pub mod classify;
 pub mod decision;
 pub mod dsp;
 pub mod epoch;
@@ -36,12 +38,18 @@ pub mod mask;
 pub mod rate;
 
 pub use artifact::{artifact_scan, ArtifactFlag, ADC24_MAX, ADC24_MIN};
+pub use calibrate::{
+    align, covariance, drift_update, whiten_cholesky, SessionMean, ZeroCalib, WHITEN_SHIFT,
+};
 pub use checksum::{fnv1a_64, Fnv1a64, FNV_OFFSET_BASIS, FNV_PRIME};
+pub use classify::{classify_lda_binary, classify_mdm, distance_sq, lda_score};
 pub use decision::{ClassifierDecision, CONFIDENCE_MAX_PERMILLE};
 pub use dsp::{fir, remove_mean};
 pub use epoch::{window_count, Epoch, EpochIter};
 pub use error::PipelineError;
-pub use feature::FeatureVector;
+pub use feature::{
+    abs_mean, isqrt, log2_q16, log_variance_q16, rms, variance, zero_crossings, FeatureVector,
+};
 pub use filter::{
     bandpass_coeffs, notch_coeffs, BandpassPreset, Biquad, BiquadCoeffs, DcBlocker, NotchMode,
     BIQUAD_ONE, BIQUAD_SHIFT,

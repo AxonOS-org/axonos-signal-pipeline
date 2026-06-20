@@ -30,6 +30,10 @@ pub enum PipelineError {
     UnsupportedSampleRate,
     /// A fixed-point filter coefficient is outside its valid range.
     InvalidCoefficient,
+    /// Two vectors that must share a dimension do not.
+    DimensionMismatch,
+    /// A classifier was given an empty set of class references.
+    EmptyClassSet,
 }
 
 impl fmt::Display for PipelineError {
@@ -49,6 +53,8 @@ impl fmt::Display for PipelineError {
             Self::InvalidShift => "fixed-point shift amount must be in 0..=31",
             Self::UnsupportedSampleRate => "sample rate has no tabulated filter design",
             Self::InvalidCoefficient => "fixed-point filter coefficient is out of range",
+            Self::DimensionMismatch => "vectors have mismatched dimensions",
+            Self::EmptyClassSet => "classifier has no class references",
         };
         f.write_str(s)
     }

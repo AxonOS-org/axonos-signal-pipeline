@@ -4,6 +4,76 @@ All notable changes to this project are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-06-20
+
+Adds deterministic, vector-pinned **calibration** machinery, completing a
+three-layer release (features 0.4.0, classifier inference 0.5.0, calibration
+0.6.0) that ship together. As with every stage in this crate, these are defined
+deterministic transforms: there is **no trained model** and **no** measured
+accuracy, latency, power, or clinical claim. Engineering demonstrator, **not a
+medical device**.
+
+### Added
+
+- Calibration in `axonos-pipeline-core::calibrate` (`#![no_std]`,
+  allocation-free, `#![forbid(unsafe_code)]`):
+  - `covariance` — mean-removed channel covariance (integer accumulation).
+  - `SessionMean` — running mean of covariance matrices (the session reference).
+  - `drift_update` — in-place `Q15` exponential update of a reference.
+  - `whiten_cholesky` — fixed-point Cholesky reference whitener `W = L⁻¹` with
+    `W R Wᵀ = I` (returns `None` for non-positive-definite input); `align`
+    applies it.
+  - `ZeroCalib` — typed zero-calibration skeleton (accumulate → finalize
+    whitener).
+- Conformance vectors `covariance` (`PV-COV-*`) and `whiten_cholesky`
+  (`PV-WHIT-*`): the whitener and the exact `align(W, R)` (the `Q16` identity to
+  fixed-point error) are pinned. Normative PIPELINE_CONTRACT §12;
+  `docs/CALIBRATION.md` rewritten as implemented.
+
+### Deferred
+
+- Symmetric `R^{-1/2}` Euclidean Alignment, online adaptation, and any
+  transfer/accuracy claim (`docs/CALIBRATION.md`).
+
+## [0.5.0] - 2026-06-20
+
+Adds deterministic **classifier inference** machinery. Model parameters are
+caller-supplied; there is **no trained model** in this repository and **no**
+accuracy claim — the only asserted property is determinism. Engineering
+demonstrator, **not a medical device**.
+
+### Added
+
+- Classifier inference in `axonos-pipeline-core::classify`:
+  - `distance_sq` — saturating squared Euclidean distance.
+  - `classify_mdm` — minimum-distance-to-mean decision with margin-based
+    confidence and an abstain threshold.
+  - `lda_score` / `classify_lda_binary` — linear/LDA score and two-class
+    decision with a dead-band abstain region.
+- Error variants `DimensionMismatch`, `EmptyClassSet`.
+- Conformance vectors `classify_mdm` (`PV-MDM-*`) and `classify_lda`
+  (`PV-LDA-*`); normative PIPELINE_CONTRACT §11.
+
+## [0.4.0] - 2026-06-20
+
+Adds deterministic **fixed-point feature extraction**. All features are defined
+integer transforms (no floating point on the data path) with **no**
+measured-quality claim. Engineering demonstrator, **not a medical device**.
+
+### Added
+
+- Feature extraction in `axonos-pipeline-core::feature`: `variance`,
+  `log_variance_q16`, `rms` (standard deviation), `abs_mean`, `zero_crossings`,
+  and the `isqrt` / `log2_q16` integer primitives.
+- Conformance vectors `feature` (`PV-FEAT-*`), `log2_q16` (`PV-LOG2-*`), `isqrt`
+  (`PV-ISQRT-*`); normative PIPELINE_CONTRACT §10.
+
+### Changed
+
+- `FeatureVector<D>` is reframed as a legacy `f32` interop container (outside any
+  conformance claim); the deterministic feature path is the integer functions
+  above. DSP module docs updated accordingly.
+
 ## [0.3.0] - 2026-06-20
 
 Adds a stateful fixed-point IIR filter bank — a DC blocker, power-line notch,
@@ -26,7 +96,7 @@ calibration stages remain typed placeholders (the roadmap shifts one minor).
   - `BIQUAD_SHIFT`, `BIQUAD_ONE`, and `BiquadCoeffs` (+ `IDENTITY`).
 - `PipelineError` variants: `UnsupportedSampleRate`, `InvalidCoefficient`.
 - Conformance vectors `biquad`, `dc_blocker`, and a shared `filter_signal` in
-  `vectors/pipeline-vectors-v0.3.0.json`, pinning output **and** post-run
+  `vectors/pipeline-vectors-v0.6.0.json`, pinning output **and** post-run
   `state_hash`, with matching `tests/conformance.rs` cases and generated data.
 - `docs/PIPELINE_CONTRACT.md` §9.3 (DC blocker) and §9.4 (biquad) — normative
   IIR arithmetic and state-hash byte order.
@@ -35,7 +105,7 @@ calibration stages remain typed placeholders (the roadmap shifts one minor).
 ### Changed
 
 - Vector set is now `vector_version` `0.3.0`; the vector file is renamed to
-  `pipeline-vectors-v0.3.0.json` (regenerated together with `SHA256SUMS`).
+  `pipeline-vectors-v0.6.0.json` (regenerated together with `SHA256SUMS`).
 - Roadmap shifts one minor: fixed-point features → v0.4.0, classifier → v0.5.0,
   calibration → v0.6.0. Docs updated accordingly.
 
@@ -120,6 +190,9 @@ reference signal pipeline.
   vectors on the roadmap (v0.2.0–v0.5.0). No accuracy, latency, or power
   figure is claimed. Pre-clinical engineering artifact; not a medical device.
 
+[0.6.0]: https://github.com/AxonOS-org/axonos-signal-pipeline/releases/tag/v0.6.0
+[0.5.0]: https://github.com/AxonOS-org/axonos-signal-pipeline/releases/tag/v0.5.0
+[0.4.0]: https://github.com/AxonOS-org/axonos-signal-pipeline/releases/tag/v0.4.0
 [0.3.0]: https://github.com/AxonOS-org/axonos-signal-pipeline/releases/tag/v0.3.0
 [0.2.4]: https://github.com/AxonOS-org/axonos-signal-pipeline/releases/tag/v0.2.4
 [0.1.0]: https://github.com/AxonOS-org/axonos-signal-pipeline/releases/tag/v0.1.0

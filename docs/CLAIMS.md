@@ -1,4 +1,4 @@
-# Claims and Evidence Levels (v0.3.0)
+# Claims and Evidence Levels (v0.6.0)
 
 AxonOS separates claims by the strength of evidence behind them. This
 repository asserts **only** machine-checkable (L1) claims. It does not assert
@@ -20,7 +20,7 @@ nothing here should be read as a clinical or regulatory statement.
 
 1. **Determinism.** Every behavioural rule in
    [`PIPELINE_CONTRACT.md`](PIPELINE_CONTRACT.md) is pinned by a vector in
-   `vectors/pipeline-vectors-v0.3.0.json` and exercised by
+   `vectors/pipeline-vectors-v0.6.0.json` and exercised by
    `crates/axonos-pipeline-core/tests/conformance.rs`. The vectors are exactly
    reproducible from `tools/gen_test_vectors.py` (checked by
    `tools/validate_vectors.py` and an integrity manifest).
@@ -39,11 +39,32 @@ nothing here should be read as a clinical or regulatory statement.
    therefore bit-exact across platforms. Their behaviour — including each
    filter's post-run `state_hash` — is pinned by the `dc_remove`, `fir`,
    `biquad`, and `dc_blocker` vectors and reproduced in `tests/conformance.rs`.
+6. **Deterministic feature extraction.** The fixed-point feature functions
+   (`variance`, `log_variance_q16`, `rms`, `abs_mean`, `zero_crossings`, and the
+   `isqrt` / `log2_q16` primitives) are integer-only and bit-exact; their outputs
+   are pinned by the `feature`, `log2_q16`, and `isqrt` vectors.
+7. **Deterministic classifier inference.** The minimum-distance-to-mean and
+   linear/LDA decision rules (`classify_mdm`, `classify_lda_binary`,
+   `distance_sq`, `lda_score`) are integer-only; for **caller-supplied** model
+   parameters, identical inputs yield an identical `ClassifierDecision`, pinned by
+   the `classify_mdm` and `classify_lda` vectors.
+8. **Deterministic calibration transforms.** Covariance, session mean, drift
+   update, and Cholesky reference whitening (`covariance`, `SessionMean`,
+   `drift_update`, `whiten_cholesky`, `align`) are integer/fixed-point; whitening
+   satisfies `W R Wᵀ = I` to fixed-point error, pinned (whitener and exact
+   alignment result) by the `covariance` and `whiten_cholesky` vectors.
 
 ## What is explicitly NOT claimed here
 
-- No classification accuracy of any kind. The v0.3.0 classifier type is a
-  decision **container**; there is no trained model in this repository.
+- No classification accuracy of any kind. The classifier provides deterministic
+  **inference machinery** (minimum-distance-to-mean, linear/LDA) over
+  caller-supplied parameters; there is **no trained model** in this repository,
+  and the parameters used in vectors and tests are illustrative. No accuracy,
+  separability, or transfer property is claimed.
+- No calibration performance. Covariance whitening is **deterministic and
+  algebraically verified** (`W R Wᵀ = I`), but no claim is made that it improves
+  classification, transfers across sessions, or converges; the symmetric
+  `R^{-1/2}` Euclidean Alignment form is deferred ([`CALIBRATION.md`](CALIBRATION.md)).
 - No latency, jitter, throughput, or power figure.
 - No hardware-compatibility claim beyond "builds for the listed targets".
 - No validated or certified filter design. The IIR filter bank (DC blocker,

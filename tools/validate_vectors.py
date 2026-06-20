@@ -49,7 +49,7 @@ def main() -> int:
             actual = hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()
             check(actual == digest, f"SHA256SUMS entry: {rel}")
 
-    vec = json.loads((ROOT / "vectors" / "pipeline-vectors-v0.3.0.json").read_text())
+    vec = json.loads((ROOT / "vectors" / "pipeline-vectors-v0.6.0.json").read_text())
     meta = vec.get("_meta", {})
     check(
         meta.get("maintainer") == "The AxonOS Project <connect@axonos.org>",
@@ -57,7 +57,7 @@ def main() -> int:
     )
     check(meta.get("security_contact") == "security@axonos.org", "_meta.security_contact")
     check(meta.get("license") == "CC0-1.0", "_meta.license is CC0-1.0")
-    check(meta.get("vector_version") == "0.3.0", "_meta.vector_version")
+    check(meta.get("vector_version") == "0.6.0", "_meta.vector_version")
 
     print("OK" if FAIL == 0 else "FAILED")
     return FAIL

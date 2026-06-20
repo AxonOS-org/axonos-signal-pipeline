@@ -1,26 +1,31 @@
-# Limitations (v0.3.0)
+# Limitations (v0.6.0)
 
 Read this before drawing any conclusion from this repository.
 
-## The pipeline is still mostly a contract
+## The pipeline is deterministic machinery, not a tuned system
 
-v0.3.0 adds a stateful fixed-point IIR filter bank on top of the v0.2.4 DSP
-primitives, but the feature, classifier, and calibration stages are still
-unimplemented. Specifically:
+Through v0.6.0 every stage of the path — DSP, features, classifier inference,
+and calibration — is implemented as **deterministic, vector-pinned machinery**.
+What is *not* here is any trained model, tuned design, or measured performance.
+Specifically:
 
-- DSP is **partial**. DC (mean) removal, a fixed-point FIR engine, and a
-  stateful fixed-point IIR filter bank (DC blocker, power-line notch, band-pass
-  presets) are implemented and vector-pinned. The IIR sections are
-  **engineering-demonstrator** designs — single second-order sections with **no**
-  certified frequency response and **no** clinical validation; `fir` remains a
-  generic convolution engine. Coefficient-design intent is documented in
-  [`DSP_SPEC.md`](DSP_SPEC.md); what is and is not claimed is in
-  [`CLAIMS.md`](CLAIMS.md).
-- There is **no** feature extraction. `FeatureVector` is a placeholder type
-  holding `f32` values; the deterministic fixed-point path is v0.4.0.
-- There is **no** classifier. `ClassifierDecision` is a typed container; no
-  model produces it in this repository (roadmap v0.5.0).
-- There is **no** calibration (Euclidean Alignment, ZeroCalib) — v0.6.0.
+- DSP is implemented and vector-pinned: DC (mean) removal, a fixed-point FIR
+  engine, and a stateful fixed-point IIR filter bank (DC blocker, power-line
+  notch, band-pass presets). The IIR sections are **engineering-demonstrator**
+  designs — single second-order sections with **no** certified frequency response
+  and **no** clinical validation; `fir` remains a generic convolution engine. See
+  [`DSP_SPEC.md`](DSP_SPEC.md) and [`CLAIMS.md`](CLAIMS.md).
+- Feature extraction (v0.4.0) is implemented as integer fixed-point functions
+  (`variance`, `log_variance_q16`, `rms`, `abs_mean`, `zero_crossings`) and is
+  vector-pinned. These are **defined transforms**, not measured-quality
+  descriptors.
+- Classifier inference (v0.5.0) is implemented (`classify_mdm`,
+  `classify_lda_binary`) but ships **no trained model**: model parameters are
+  caller-supplied and the only property asserted is determinism.
+- Calibration (v0.6.0) implements covariance, session mean, drift update,
+  Cholesky reference whitening, and a ZeroCalib **skeleton**. The symmetric
+  `R^{-1/2}` Euclidean Alignment form and any online adaptation are deferred
+  ([`CALIBRATION.md`](CALIBRATION.md)).
 
 ## Scope boundaries
 
@@ -39,10 +44,10 @@ unimplemented. Specifically:
 
 ## Numerics
 
-- `FeatureVector` uses `f32` at v0.3.0; floating point is **not** part of any
-  deterministic conformance claim. The DSP primitives, the IIR filter bank, and
-  all v0.3.0 vectors are integer fixed-point. A fixed-point feature path is
-  required before features become conformance-pinned.
+- `FeatureVector` is a legacy `f32` interop container and is **not** part of any
+  deterministic conformance claim. The vector-pinned feature path is the integer
+  fixed-point functions in `feature` (`variance`, `log_variance_q16`, `rms`,
+  `abs_mean`, `zero_crossings`). All vectors are integer fixed-point.
 
 ## Privacy boundary — what it does and does not guarantee
 
