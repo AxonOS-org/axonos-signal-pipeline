@@ -1,6 +1,22 @@
+<div align="center">
+
 # AxonOS Signal Pipeline
 
-**Reference deterministic BCI signal pipeline for AxonOS.**
+**Reference deterministic BCI signal pipeline for AxonOS** — the executable, vector-pinned path from a raw acquisition frame to a typed, consent-bound decision.
+
+[![ci](https://github.com/AxonOS-org/axonos-signal-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/AxonOS-org/axonos-signal-pipeline/actions/workflows/ci.yml)
+[![release](https://img.shields.io/badge/release-v0.6.0-6af6ff)](https://github.com/AxonOS-org/axonos-signal-pipeline/releases)
+[![license](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue)](#licensing)
+[![rust](https://img.shields.io/badge/rust-1.75%2B-dea584)](Cargo.toml)
+[![no_std](https://img.shields.io/badge/no__std-yes-2ea44f)](#properties)
+[![unsafe](https://img.shields.io/badge/unsafe-forbidden-2ea44f)](#properties)
+[![deps](https://img.shields.io/badge/dependencies-0-2ea44f)](#properties)
+
+*Engineering demonstrator — not a medical device, no trained model, no measured-performance claim.*
+
+</div>
+
+---
 
 This repository defines the executable path from a raw acquisition frame to a
 typed, consent-bound decision:

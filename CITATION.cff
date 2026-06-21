@@ -8,7 +8,7 @@ abstract: >-
   engineering artifact; not a medical device.
 type: software
 version: 0.6.0
-date-released: "2026-06-18"
+date-released: "2026-06-20"
 license: "Apache-2.0 OR MIT"
 repository-code: "https://github.com/AxonOS-org/axonos-signal-pipeline"
 url: "https://axonos.org"

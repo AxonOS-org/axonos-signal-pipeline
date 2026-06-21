@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Single source of truth for v0.2.4 conformance vectors.
+"""Single source of truth for v0.6.0 conformance vectors.
 
 Generates, deterministically and from first principles:
-  vectors/pipeline-vectors-v0.2.4.json
+  vectors/pipeline-vectors-v0.6.0.json
   fixtures/synthetic/frame-0001.json
   crates/axonos-pipeline-core/tests/data/vectors.rs
   vectors/SHA256SUMS   (covers the JSON artifacts above)
