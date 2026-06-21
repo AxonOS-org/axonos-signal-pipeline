@@ -33,6 +33,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
   test:
@@ -40,6 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
 
   msrv:
@@ -49,6 +51,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.75.0
+      - uses: Swatinem/rust-cache@v2
       - run: cargo build --workspace
 
   no-std:
@@ -58,6 +61,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: thumbv7em-none-eabihf
+      - uses: Swatinem/rust-cache@v2
       - run: cargo build -p axonos-pipeline-core --target thumbv7em-none-eabihf
 
   docs:
@@ -67,6 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: cargo doc --workspace --no-deps
 
   vectors:
@@ -89,3 +94,17 @@ jobs:
         with:
           python-version: "3.12"
       - run: python3 tools/check_hygiene.py
+
+  consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Cargo and CITATION versions agree
+        run: |
+          cargo_v=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')
+          cite_v=$(grep -m1 '^version:' CITATION.cff | sed -E 's/^version:[[:space:]]*"?([^"]+)"?[[:space:]]*$/\1/')
+          echo "Cargo.toml=$cargo_v  CITATION.cff=$cite_v"
+          if [ "$cargo_v" != "$cite_v" ]; then
+            echo "::error::version mismatch: Cargo.toml=$cargo_v CITATION.cff=$cite_v"
+            exit 1
+          fi
