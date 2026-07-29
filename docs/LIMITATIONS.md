@@ -22,9 +22,12 @@ Specifically:
 - Classifier inference (v0.5.0) is implemented (`classify_mdm`,
   `classify_lda_binary`) but ships **no trained model**: model parameters are
   caller-supplied and the only property asserted is determinism.
-- Calibration (v0.6.0) implements covariance, session mean, drift update,
-  Cholesky reference whitening, and a ZeroCalib **skeleton**. The symmetric
-  `R^{-1/2}` Euclidean Alignment form and any online adaptation are deferred
+- Calibration (v0.7.0) implements covariance, session mean, drift update,
+  Cholesky reference whitening, and the symmetric `R^{-1/2}` aligner
+  (`inverse_sqrt_spd`, `ZeroCalib::aligner`). Online adaptation is still
+  deferred. The aligner is a **transform, not a decoder**: it provably reduces
+  inter-subject difference to a residual orthogonal factor and does not remove
+  it, so no transfer or accuracy property is claimed
   ([`CALIBRATION.md`](CALIBRATION.md)).
 
 ## Scope boundaries

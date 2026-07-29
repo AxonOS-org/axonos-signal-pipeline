@@ -266,6 +266,192 @@ pub fn align<const C: usize>(w: &[[i64; C]; C], cov: &[[i64; C]; C]) -> [[i64; C
 }
 
 /// Zero-calibration *skeleton*: accumulate session covariances, then finalize a
+
+/// Fractional bits used *inside* the inverse-square-root iteration.
+///
+/// Higher than [`WHITEN_SHIFT`] on purpose. The iteration squares its operands
+/// repeatedly, so precision lost early is amplified; at `Q16` the result
+/// deviates from the target by ~8·10⁻³ relative, at `Q24` by ~2·10⁻⁵. The
+/// result is returned at `WHITEN_SHIFT` so it is interchangeable with
+/// [`whiten_cholesky`] and consumable by [`align`].
+pub const ALIGN_INTERNAL_SHIFT: u32 = 24;
+
+/// Newton–Schulz iterations performed. Fixed, never data-dependent.
+///
+/// The count is a constant rather than a convergence test because a loop that
+/// stops when it is satisfied has an execution time that depends on its input,
+/// and this crate exists inside a system that must state a worst case. The
+/// iteration converges quadratically and plateaus by ten on the conditioning
+/// this shrinkage admits; fourteen is that with margin.
+pub const ALIGN_ITERATIONS: u32 = 14;
+
+/// Default diagonal shrinkage, in parts per million of the mean eigenvalue.
+///
+/// `R' = R + εI` with `ε = shrinkage · tr(R) / (10⁶ · C)`. Two things depend on
+/// it, in opposite directions: convergence needs the smallest eigenvalue bounded
+/// away from zero, and fidelity to the *unregularised* `R` wants ε as small as
+/// possible. Measured cost at `C = 8` and condition number 100:
+///
+/// | shrinkage | `max‖W R Wᵀ − I‖` |
+/// |----------:|------------------:|
+/// |     0.2 % |             0.043 |
+/// |     1.0 % |             0.159 |
+/// |     5.0 % |             0.353 |
+///
+/// The default is deliberately small; a caller working with ill-conditioned
+/// covariance should raise it and accept the cost knowingly.
+pub const DEFAULT_SHRINKAGE_PPM: u32 = 2_000;
+
+/// Symmetric inverse square root `R^{-1/2}` of a positive-definite covariance,
+/// in `Q16` fixed point.
+///
+/// This is the whitener Euclidean Alignment specifies, and the one
+/// [`whiten_cholesky`] is not. Both satisfy `W R Wᵀ = I`; they differ in that
+/// the Cholesky factor is triangular and this one is symmetric. Every whitener
+/// satisfying `W R Wᵀ = I` equals `R^{-1/2}` up to a left orthogonal factor, so
+/// the choice determines *which* frame the whitened data lands in — see
+/// `docs/CALIBRATION.md` for what that does and, importantly, does not settle.
+///
+/// # Method
+///
+/// Newton–Schulz, which needs only matrix multiplication — no eigendecomposition,
+/// no square root of a matrix, no division inside the loop:
+///
+/// ```text
+/// A  = (R + εI) / tr(R + εI)          so that every eigenvalue lies in (0, 1]
+/// Y₀ = A,  Z₀ = I
+/// T    = (3I − ZY) / 2
+/// Y    ← Y T,   Z ← T Z               Y → A^{1/2},  Z → A^{-1/2}
+/// R^{-1/2} = Z / √tr(R + εI)
+/// ```
+///
+/// Multiplication-only matters here for more than speed: it is what makes the
+/// routine expressible in exact integer arithmetic, so two implementations
+/// agree bit for bit rather than approximately.
+///
+/// # Guarantees
+///
+/// Deterministic, allocation-free, and constant-time in the sense that matters
+/// for a real-time budget: the iteration count does not depend on the data.
+/// The result is symmetric to within fixed-point rounding.
+///
+/// # What is not claimed
+///
+/// That this improves classification, transfers across subjects or sessions, or
+/// converges to anything about a person. It is a defined transform, verified
+/// algebraically. See `docs/CLAIMS.md`.
+///
+/// Returns `None` when `R` has a non-positive trace — the case where no
+/// covariance was observed, or the input is not a covariance at all.
+pub fn inverse_sqrt_spd<const C: usize>(
+    r: &[[i64; C]; C],
+    shrinkage_ppm: u32,
+    iterations: u32,
+) -> Option<[[i64; C]; C]> {
+    const fn one(shift: u32) -> i128 {
+        1i128 << shift
+    }
+    let q = ALIGN_INTERNAL_SHIFT;
+    let unit = one(q);
+
+    let mut trace: i128 = 0;
+    for i in 0..C {
+        trace += r[i][i] as i128;
+    }
+    if trace <= 0 {
+        return None;
+    }
+    // ε as a fraction of the mean eigenvalue, so shrinkage means the same thing
+    // whatever the input is scaled by.
+    let eps = (trace * shrinkage_ppm as i128) / (1_000_000i128 * C as i128);
+
+    let mut reg = [[0i128; C]; C];
+    let mut s: i128 = 0;
+    for i in 0..C {
+        for j in 0..C {
+            reg[i][j] = r[i][j] as i128 + if i == j { eps } else { 0 };
+        }
+        s += reg[i][i];
+    }
+    if s <= 0 {
+        return None;
+    }
+
+    // A = reg / s, in Q(ALIGN_INTERNAL_SHIFT). Every eigenvalue of a positive
+    // semi-definite matrix is at most its trace, so this places the spectrum in
+    // (0, 1] and the iteration is in its convergent region.
+    let mut y = [[0i128; C]; C];
+    for i in 0..C {
+        for j in 0..C {
+            y[i][j] = (reg[i][j] << q) / s;
+        }
+    }
+    let mut z = [[0i128; C]; C];
+    for (i, row) in z.iter_mut().enumerate() {
+        row[i] = unit;
+    }
+
+    let mul = |a: &[[i128; C]; C], b: &[[i128; C]; C]| -> [[i128; C]; C] {
+        let mut out = [[0i128; C]; C];
+        for i in 0..C {
+            for j in 0..C {
+                let mut acc: i128 = 0;
+                for k in 0..C {
+                    acc += a[i][k] * b[k][j];
+                }
+                out[i][j] = acc >> q;
+            }
+        }
+        out
+    };
+
+    for _ in 0..iterations {
+        let zy = mul(&z, &y);
+        let mut tm = [[0i128; C]; C];
+        for i in 0..C {
+            for j in 0..C {
+                let three_i = if i == j { 3 * unit } else { 0 };
+                tm[i][j] = (three_i - zy[i][j]) / 2;
+            }
+        }
+        y = mul(&y, &tm);
+        z = mul(&tm, &z);
+    }
+
+    // R^{-1/2} = Z / √s. Computed as Z · (1/√s) with the reciprocal formed at
+    // 2q fractional bits so the division does not eat the result's precision.
+    let root = isqrt_i128(s << (2 * q));
+    if root <= 0 {
+        return None;
+    }
+    let inv_root = (1i128 << (2 * q)) / root; // 1/√s at Q(q)
+
+    let mut out = [[0i64; C]; C];
+    let down = q - WHITEN_SHIFT;
+    for i in 0..C {
+        for j in 0..C {
+            let v = (z[i][j] * inv_root) >> (q + down);
+            out[i][j] = v as i64;
+        }
+    }
+    Some(out)
+}
+
+/// Integer square root by Newton's method. Deterministic and terminating: the
+/// sequence is strictly decreasing until it reaches the floor of the root.
+fn isqrt_i128(x: i128) -> i128 {
+    if x <= 0 {
+        return 0;
+    }
+    let mut r = x;
+    let mut y = (r + 1) / 2;
+    while y < r {
+        r = y;
+        y = (r + x / r) / 2;
+    }
+    r
+}
+
 /// reference whitener. Structural only — there is no online adaptation or
 /// transfer claim (`docs/CALIBRATION.md`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -291,11 +477,33 @@ impl<const C: usize> ZeroCalib<C> {
         self.mean.count()
     }
 
-    /// Finalizes the `Q16` reference whitener, or `None` if no covariance was
-    /// observed or the mean is not positive-definite.
+    /// Finalizes the `Q16` reference whitener by Cholesky, or `None` if no
+    /// covariance was observed or the mean is not positive-definite.
+    ///
+    /// Retained because it is cheaper and its output is pinned by existing
+    /// vectors. For alignment use [`ZeroCalib::aligner`], which produces the
+    /// symmetric whitener Euclidean Alignment specifies.
     pub fn whitener(&self) -> Option<[[i64; C]; C]> {
         let r = self.mean.mean()?;
         whiten_cholesky(&r)
+    }
+
+    /// Finalizes the symmetric `Q16` aligner `R̄^{-1/2}` over the observed
+    /// covariances, or `None` if none were observed.
+    ///
+    /// This closes the gap the module has documented since v0.6.0: the
+    /// zero-calibration path needs the symmetric root, not the Cholesky factor,
+    /// because every whitener satisfying `W R Wᵀ = I` differs from `R^{-1/2}`
+    /// by a left orthogonal factor and that factor decides which frame the data
+    /// lands in.
+    ///
+    /// Observations are **unlabelled**: this is what "no calibration session"
+    /// means here, and it is a narrower statement than "no data". A short
+    /// stretch of ordinary use is still required before `count()` is enough to
+    /// estimate `R̄`.
+    pub fn aligner(&self, shrinkage_ppm: u32) -> Option<[[i64; C]; C]> {
+        let r = self.mean.mean()?;
+        inverse_sqrt_spd(&r, shrinkage_ppm, ALIGN_ITERATIONS)
     }
 }
 
@@ -384,5 +592,187 @@ mod tests {
         assert_eq!(zc.count(), 2);
         let w = zc.whitener().expect("PD");
         assert_identity_q16(&align(&w, &r));
+    }
+}
+
+#[cfg(test)]
+mod inverse_sqrt_tests {
+    use super::*;
+
+    const Q: i64 = 1 << WHITEN_SHIFT;
+
+    /// `W R Wᵀ`, in Q0, for checking against the identity.
+    fn round_trip<const C: usize>(w: &[[i64; C]; C], r: &[[i64; C]; C]) -> [[f64; C]; C] {
+        let wf = |x: i64| x as f64 / Q as f64;
+        let mut out = [[0.0f64; C]; C];
+        for i in 0..C {
+            for j in 0..C {
+                let mut s = 0.0;
+                for k in 0..C {
+                    for l in 0..C {
+                        s += wf(w[i][k]) * r[k][l] as f64 * wf(w[j][l]);
+                    }
+                }
+                out[i][j] = s;
+            }
+        }
+        out
+    }
+
+    fn max_dev_from_identity<const C: usize>(m: &[[f64; C]; C]) -> f64 {
+        let mut worst = 0.0f64;
+        for i in 0..C {
+            for j in 0..C {
+                let target = if i == j { 1.0 } else { 0.0 };
+                worst = worst.max((m[i][j] - target).abs());
+            }
+        }
+        worst
+    }
+
+    #[test]
+    fn the_identity_is_its_own_inverse_square_root() {
+        let r = [[1000i64, 0], [0, 1000]];
+        let w = inverse_sqrt_spd(&r, 0, ALIGN_ITERATIONS).unwrap();
+        // R^{-1/2} = 1/sqrt(1000) ≈ 0.031623 → Q16 ≈ 2072
+        assert!((w[0][0] - 2072).abs() <= 2, "got {}", w[0][0]);
+        assert_eq!(w[0][1], 0);
+        assert_eq!(w[0][0], w[1][1]);
+    }
+
+    #[test]
+    fn a_diagonal_matrix_gives_element_wise_inverse_roots() {
+        let r = [[400i64, 0, 0], [0, 900, 0], [0, 0, 2500]];
+        let w = inverse_sqrt_spd(&r, 0, ALIGN_ITERATIONS).unwrap();
+        for (i, expect) in [1.0 / 20.0, 1.0 / 30.0, 1.0 / 50.0].iter().enumerate() {
+            let got = w[i][i] as f64 / Q as f64;
+            assert!((got - expect).abs() < 2e-3, "row {i}: {got} vs {expect}");
+        }
+    }
+
+    #[test]
+    fn the_result_is_symmetric_which_the_cholesky_factor_is_not() {
+        let r = [[2500i64, 900, 300], [900, 1600, 400], [300, 400, 1200]];
+        let sym = inverse_sqrt_spd(&r, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS).unwrap();
+        for i in 0..3 {
+            for j in 0..3 {
+                assert!(
+                    (sym[i][j] - sym[j][i]).abs() <= 2,
+                    "asymmetric at {i},{j}: {} vs {}",
+                    sym[i][j],
+                    sym[j][i]
+                );
+            }
+        }
+        let chol = whiten_cholesky(&r).unwrap();
+        let triangular = chol[0][1] == 0 && chol[0][2] == 0 && chol[1][2] == 0;
+        assert!(
+            triangular,
+            "the Cholesky whitener is triangular, and so not this"
+        );
+    }
+
+    #[test]
+    fn it_whitens_what_it_was_given() {
+        let r = [[2500i64, 900, 300], [900, 1600, 400], [300, 400, 1200]];
+        let w = inverse_sqrt_spd(&r, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS).unwrap();
+        let dev = max_dev_from_identity(&round_trip(&w, &r));
+        assert!(dev < 0.05, "W R Wᵀ deviates from I by {dev}");
+    }
+
+    #[test]
+    fn shrinkage_trades_fidelity_for_conditioning_in_the_documented_direction() {
+        let r = [[10_000i64, 9_800, 0], [9_800, 10_000, 0], [0, 0, 40]];
+        let tight = inverse_sqrt_spd(&r, 200, ALIGN_ITERATIONS).unwrap();
+        let loose = inverse_sqrt_spd(&r, 100_000, ALIGN_ITERATIONS).unwrap();
+        let d_tight = max_dev_from_identity(&round_trip(&tight, &r));
+        let d_loose = max_dev_from_identity(&round_trip(&loose, &r));
+        assert!(
+            d_tight < d_loose,
+            "less shrinkage must whiten the original matrix more closely: {d_tight} vs {d_loose}"
+        );
+    }
+
+    #[test]
+    fn the_iteration_count_does_not_depend_on_the_data() {
+        // The loop is fixed, so a WCET can be stated. Two very differently
+        // conditioned inputs must both be accepted at the same count.
+        let easy = [[1000i64, 0], [0, 1000]];
+        let hard = [[10_000i64, 9_900], [9_900, 10_000]];
+        assert!(inverse_sqrt_spd(&easy, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS).is_some());
+        assert!(inverse_sqrt_spd(&hard, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS).is_some());
+    }
+
+    #[test]
+    fn more_iterations_do_not_move_a_converged_result() {
+        let r = [[2500i64, 900], [900, 1600]];
+        let a = inverse_sqrt_spd(&r, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS).unwrap();
+        let b = inverse_sqrt_spd(&r, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS + 8).unwrap();
+        for i in 0..2 {
+            for j in 0..2 {
+                assert!((a[i][j] - b[i][j]).abs() <= 1, "not converged at {i},{j}");
+            }
+        }
+    }
+
+    #[test]
+    fn it_is_bit_for_bit_deterministic() {
+        let r = [[2500i64, 900, 300], [900, 1600, 400], [300, 400, 1200]];
+        let a = inverse_sqrt_spd(&r, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS);
+        let b = inverse_sqrt_spd(&r, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn a_degenerate_input_is_refused_rather_than_guessed() {
+        let zero = [[0i64; 3]; 3];
+        assert!(inverse_sqrt_spd(&zero, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS).is_none());
+        let negative = [[-100i64, 0], [0, -100]];
+        assert!(inverse_sqrt_spd(&negative, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS).is_none());
+    }
+
+    #[test]
+    fn zerocalib_produces_an_aligner_from_unlabelled_observations() {
+        let mut zc = ZeroCalib::<3>::new();
+        assert!(
+            zc.aligner(DEFAULT_SHRINKAGE_PPM).is_none(),
+            "nothing observed yet"
+        );
+        for scale in [1i64, 2, 3, 4] {
+            let cov = [
+                [2500 * scale, 900 * scale, 300 * scale],
+                [900 * scale, 1600 * scale, 400 * scale],
+                [300 * scale, 400 * scale, 1200 * scale],
+            ];
+            zc.observe(&cov);
+        }
+        assert_eq!(zc.count(), 4);
+        let w = zc.aligner(DEFAULT_SHRINKAGE_PPM).unwrap();
+        for i in 0..3 {
+            for j in 0..3 {
+                assert!((w[i][j] - w[j][i]).abs() <= 2, "aligner must be symmetric");
+            }
+        }
+    }
+
+    #[test]
+    fn the_aligner_and_the_cholesky_whitener_both_whiten_and_still_differ() {
+        // Both satisfy W R Wᵀ = I; they are not the same matrix, and the
+        // difference is the residual orthogonal factor documented in
+        // docs/CALIBRATION.md.
+        let r = [[2500i64, 900, 300], [900, 1600, 400], [300, 400, 1200]];
+        let sym = inverse_sqrt_spd(&r, 200, ALIGN_ITERATIONS).unwrap();
+        let chol = whiten_cholesky(&r).unwrap();
+        assert!(max_dev_from_identity(&round_trip(&sym, &r)) < 0.05);
+        assert!(max_dev_from_identity(&round_trip(&chol, &r)) < 0.05);
+        let mut differs = false;
+        for i in 0..3 {
+            for j in 0..3 {
+                if (sym[i][j] - chol[i][j]).abs() > 16 {
+                    differs = true;
+                }
+            }
+        }
+        assert!(differs, "the two whiteners must not coincide");
     }
 }

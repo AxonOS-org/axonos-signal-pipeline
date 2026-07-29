@@ -50,3 +50,53 @@ The normative surface is [`PIPELINE_CONTRACT.md`](PIPELINE_CONTRACT.md) §12.
 ---
 
 The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org · github.com/AxonOS-org
+
+## The symmetric root, and what alignment actually achieves
+
+`inverse_sqrt_spd` (v0.7.0) computes the symmetric `R^{-1/2}` this document
+previously deferred. It is the whitener Euclidean Alignment specifies, and it
+is not the Cholesky factor: both satisfy `W R Wᵀ = I`, but every whitener
+satisfying that identity equals `R^{-1/2}` up to a **left orthogonal factor**,
+so the choice decides which frame the whitened data lands in.
+
+### The result that bounds the claim
+
+Let a subject's observation be `X = M · s` for an unknown mixing `M`, with
+class covariance `Σ_c` in source space and `Σ̄` the mean over classes. Write
+`P = M Σ̄^{1/2}`, so the reference covariance is `R̄ = P Pᵀ` and the class
+covariance is `M Σ_c Mᵀ = P G_c Pᵀ` with
+
+```
+G_c = Σ̄^{-1/2} Σ_c Σ̄^{-1/2}          — subject-independent
+```
+
+Applying the symmetric whitener and using the polar decomposition
+`P = (P Pᵀ)^{1/2} U` with `U` orthogonal:
+
+```
+R̄^{-1/2} (P G_c Pᵀ) R̄^{-1/2} = U G_c Uᵀ
+```
+
+**Alignment reduces the difference between subjects to a pure rotation.** It
+does not remove it. `U` is the orthogonal polar factor of `M Σ̄^{1/2}` and is
+subject-specific; the Cholesky whitener leaves a different orthogonal factor by
+the same argument. Neither is rotation-free, and no whitener defined by
+`W R Wᵀ = I` can be.
+
+Verified numerically against the closed form: the identity above holds to
+`1e-7` for random SPD inputs, and the residual factor is orthogonal to `1e-8`.
+
+### What follows, and what does not
+
+Whether the residual rotation is benign is an **empirical property of the
+recording montage**, not a theorem. Where subjects share electrode positions —
+a fixed 10-20 layout — the mixing matrices are similar and `U` is near the
+identity, which is the regime the alignment literature reports success in.
+Where the mixings are arbitrary, `U` is arbitrary and alignment provides no
+transfer at all: a simulation with unconstrained random mixing puts a
+transferred classifier at chance, for both whiteners.
+
+So this crate ships the mechanism and no performance claim. Establishing that
+`U` is small enough on real hardware needs real recordings from real subjects
+through the same montage, which is an experiment, not an implementation.
+

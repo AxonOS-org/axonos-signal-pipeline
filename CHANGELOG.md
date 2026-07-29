@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.7.0] — 2026-07-29
+
+### Added
+- **`inverse_sqrt_spd`** — the symmetric `R^{-1/2}` this crate has deferred
+  since v0.6.0, by Newton–Schulz in integer arithmetic. Multiplication only: no
+  eigendecomposition, no matrix square root, no division inside the loop, which
+  is what makes it expressible exactly so two implementations agree bit for bit
+  rather than approximately. Internal precision `Q24`, result at `WHITEN_SHIFT`
+  so it is interchangeable with `whiten_cholesky` and consumable by `align`.
+  The iteration count is a constant, never a convergence test: a loop that
+  stops when it is satisfied has an input-dependent execution time, and this
+  crate lives inside a system that must state a worst case.
+- **`ZeroCalib::aligner`** — the symmetric whitener over unlabelled
+  observations. Unlabelled is the precise claim: no calibration *session* is
+  required, a short stretch of ordinary use still is.
+- Eleven tests: closed-form agreement for scalar and diagonal inputs, symmetry
+  where the Cholesky factor is triangular, `W R Wᵀ ≈ I`, the documented
+  shrinkage trade-off in the documented direction, convergence stability under
+  additional iterations, bit-for-bit determinism, and refusal on degenerate
+  input rather than a guess.
+
+### Documented
+- **What alignment achieves, and what it cannot.** For observation `X = M · s`,
+  the symmetric whitener maps the class covariance to `U G_c Uᵀ` where `G_c` is
+  subject-independent and `U` is the orthogonal polar factor of `M Σ̄^{1/2}`.
+  Alignment therefore reduces inter-subject difference to a **pure rotation**
+  and does not remove it — and no whitener satisfying `W R Wᵀ = I` can, since
+  they all differ from `R^{-1/2}` by a left orthogonal factor.
+
+  Consequently `CLAIMS.md` still makes no transfer or accuracy claim, and the
+  reason is now a proof rather than caution. Whether the residual rotation is
+  benign is an empirical property of the recording montage: with a shared 10-20
+  layout the mixings are similar and `U` is near identity, which is the regime
+  the literature reports; with unconstrained mixing a transferred classifier
+  sits at chance, for this whitener and for Cholesky alike.
+
 All notable changes to this project are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).

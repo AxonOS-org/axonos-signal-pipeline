@@ -54,6 +54,13 @@ nothing here should be read as a clinical or regulatory statement.
    satisfies `W R Wᵀ = I` to fixed-point error, pinned (whitener and exact
    alignment result) by the `covariance` and `whiten_cholesky` vectors.
 
+9. **Symmetric inverse square root.** `inverse_sqrt_spd` computes `R^{-1/2}`
+   by Newton–Schulz in integer arithmetic with a fixed iteration count. The
+   result is symmetric to fixed-point rounding, satisfies `W R Wᵀ = I` for the
+   regularised input, is bit-for-bit deterministic, and its execution time does
+   not depend on its input. Verified against closed forms for diagonal and
+   scalar matrices and against the identity for general SPD inputs.
+
 ## What is explicitly NOT claimed here
 
 - No classification accuracy of any kind. The classifier provides deterministic
@@ -63,8 +70,12 @@ nothing here should be read as a clinical or regulatory statement.
   separability, or transfer property is claimed.
 - No calibration performance. Covariance whitening is **deterministic and
   algebraically verified** (`W R Wᵀ = I`), but no claim is made that it improves
-  classification, transfers across sessions, or converges; the symmetric
-  `R^{-1/2}` Euclidean Alignment form is deferred ([`CALIBRATION.md`](CALIBRATION.md)).
+  classification, transfers across sessions, or converges. The symmetric
+  `R^{-1/2}` form is now implemented, and implementing it does not change this:
+  alignment provably reduces inter-subject difference to a residual orthogonal
+  factor and does not remove it, so whether transfer occurs is an empirical
+  property of the montage rather than a property of the transform
+  ([`CALIBRATION.md`](CALIBRATION.md)).
 - No latency, jitter, throughput, or power figure.
 - No hardware-compatibility claim beyond "builds for the listed targets".
 - No validated or certified filter design. The IIR filter bank (DC blocker,
