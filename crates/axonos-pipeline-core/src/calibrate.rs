@@ -272,8 +272,6 @@ pub fn align<const C: usize>(w: &[[i64; C]; C], cov: &[[i64; C]; C]) -> [[i64; C
     out
 }
 
-/// Zero-calibration *skeleton*: accumulate session covariances, then finalize a
-
 /// Fractional bits used *inside* the inverse-square-root iteration.
 ///
 /// Higher than [`WHITEN_SHIFT`] on purpose. The iteration squares its operands
@@ -362,8 +360,8 @@ pub fn inverse_sqrt_spd<const C: usize>(
     let unit = one(q);
 
     let mut trace: i128 = 0;
-    for i in 0..C {
-        trace += r[i][i] as i128;
+    for (i, row) in r.iter().enumerate() {
+        trace += row[i] as i128;
     }
     if trace <= 0 {
         return None;
@@ -400,11 +398,14 @@ pub fn inverse_sqrt_spd<const C: usize>(
 
     let mul = |a: &[[i128; C]; C], b: &[[i128; C]; C]| -> [[i128; C]; C] {
         let mut out = [[0i128; C]; C];
-        for i in 0..C {
+        for (i, arow) in a.iter().enumerate() {
             for j in 0..C {
                 let mut acc: i128 = 0;
-                for k in 0..C {
-                    acc += a[i][k] * b[k][j];
+                // Walk b by row and index the column: the loop variable is the
+                // row of b, so iterating b directly says what the arithmetic
+                // means rather than restating an index twice.
+                for (brow, &av) in b.iter().zip(arow.iter()) {
+                    acc += av * brow[j];
                 }
                 out[i][j] = acc >> q;
             }
@@ -459,8 +460,13 @@ fn isqrt_i128(x: i128) -> i128 {
     r
 }
 
+/// Zero-calibration accumulator: gather session covariances, then finalize a
 /// reference whitener. Structural only — there is no online adaptation or
 /// transfer claim (`docs/CALIBRATION.md`).
+///
+/// No longer a skeleton as of 0.7.0: [`ZeroCalib::aligner`] produces the
+/// symmetric `R^{-1/2}` the alignment literature specifies. What remains
+/// unclaimed is any *performance* property — see `docs/CLAIMS.md`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ZeroCalib<const C: usize> {
     mean: SessionMean<C>,
@@ -615,9 +621,9 @@ mod inverse_sqrt_tests {
         for i in 0..C {
             for j in 0..C {
                 let mut s = 0.0;
-                for k in 0..C {
-                    for l in 0..C {
-                        s += wf(w[i][k]) * r[k][l] as f64 * wf(w[j][l]);
+                for (k, rrow) in r.iter().enumerate() {
+                    for (l, &rv) in rrow.iter().enumerate() {
+                        s += wf(w[i][k]) * rv as f64 * wf(w[j][l]);
                     }
                 }
                 out[i][j] = s;
@@ -628,10 +634,10 @@ mod inverse_sqrt_tests {
 
     fn max_dev_from_identity<const C: usize>(m: &[[f64; C]; C]) -> f64 {
         let mut worst = 0.0f64;
-        for i in 0..C {
-            for j in 0..C {
+        for (i, row) in m.iter().enumerate() {
+            for (j, &v) in row.iter().enumerate() {
                 let target = if i == j { 1.0 } else { 0.0 };
-                worst = worst.max((m[i][j] - target).abs());
+                worst = worst.max((v - target).abs());
             }
         }
         worst

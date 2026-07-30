@@ -3,6 +3,20 @@
 ## [0.8.0] — 2026-07-30
 
 ### Fixed
+- **The 0.7.0 insertion split a doc comment and hung it on the wrong item.**
+  `ZeroCalib`'s documentation began *"Zero-calibration skeleton: accumulate
+  session covariances, then finalize a"* — and the rest of that sentence was
+  nine hundred lines away, because the new constants had been inserted into the
+  middle of the comment. The orphaned first line then documented
+  `ALIGN_INTERNAL_SHIFT` instead, so the struct lost its documentation and a
+  constant gained a misleading one. Clippy named it exactly
+  (`empty_line_after_doc_comment`); nothing else would have. The comment is
+  re-joined and its text corrected: `ZeroCalib` is no longer a skeleton, and
+  what remains unclaimed is a performance property rather than the mechanism.
+- Four `needless_range_loop` warnings in code added in 0.7.0 — two in the
+  inverse-square-root routine, two in its test helpers. Rewritten to iterate
+  the thing being indexed, which in the matrix product also says what the
+  arithmetic means instead of restating an index twice.
 - **The 0.7.0 release bumped one file.** `Cargo.toml` said 0.7.0 while the
   README badge, `CITATION.cff`, the conformance vector filename and its
   `vector_version`, six normative documents, the calibration module header and
