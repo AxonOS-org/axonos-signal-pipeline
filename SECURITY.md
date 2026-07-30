@@ -30,3 +30,9 @@ security fixes.
 ---
 
 The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org · github.com/AxonOS-org
+
+---
+
+<sub>**AxonOS Signal Pipeline v0.8.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](NOTICE)
+for attribution terms · connect@axonos.org</sub>

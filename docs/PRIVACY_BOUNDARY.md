@@ -9,7 +9,7 @@ separates the pipeline from application code, only a typed, consent-bound
 decision may pass. Applications never receive raw frames, epochs, or feature
 vectors.
 
-## How v0.6.0 enforces it
+## How v0.8.0 enforces it
 
 1. **Sealed marker trait.** `boundary::BoundarySafe` is sealed; only
    `ClassifierDecision` implements it. `RawFrame`, `Epoch`, and `FeatureVector`
@@ -47,3 +47,9 @@ the kernel, prevents a parallel definition from drifting out of sync.
 ---
 
 The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org · github.com/AxonOS-org
+
+---
+
+<sub>**AxonOS Signal Pipeline v0.8.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](../NOTICE)
+for attribution terms · connect@axonos.org</sub>

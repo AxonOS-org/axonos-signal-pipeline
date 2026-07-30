@@ -1,4 +1,11 @@
-//! Deterministic calibration primitives (v0.6.0).
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+// SPDX-FileCopyrightText: 2026 Denis Yermakou <connect@axonos.org>
+//
+// Part of the AxonOS Signal Pipeline. Dual-licensed Apache-2.0 OR MIT at your
+// option; see LICENSE-APACHE and LICENSE-MIT. Authored by Denis Yermakou for The
+// AxonOS Project — https://axonos.org
+
+//! Deterministic calibration primitives (v0.8.0).
 //!
 //! Fixed-point, allocation-free building blocks for per-session adaptation:
 //! channel **covariance**, a running **session mean** of covariances, an
@@ -491,7 +498,7 @@ impl<const C: usize> ZeroCalib<C> {
     /// Finalizes the symmetric `Q16` aligner `R̄^{-1/2}` over the observed
     /// covariances, or `None` if none were observed.
     ///
-    /// This closes the gap the module has documented since v0.6.0: the
+    /// This closes the gap the module has documented since v0.8.0: the
     /// zero-calibration path needs the symmetric root, not the Cholesky factor,
     /// because every whitener satisfying `W R Wᵀ = I` differs from `R^{-1/2}`
     /// by a left orthogonal factor and that factor decides which frame the data

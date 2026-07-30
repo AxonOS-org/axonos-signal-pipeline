@@ -7,16 +7,22 @@ abstract: >-
   decision, with language-neutral conformance vectors. Pre-clinical
   engineering artifact; not a medical device.
 type: software
-version: 0.6.0
-date-released: "2026-06-20"
+version: 0.8.0
+date-released: "2026-07-30"
 license: "Apache-2.0 OR MIT"
+# Copyright 2026 Denis Yermakou. See NOTICE for attribution terms.
 repository-code: "https://github.com/AxonOS-org/axonos-signal-pipeline"
 url: "https://axonos.org"
+# Denis Yermakou is the author; The AxonOS Project is the umbrella the work is
+# published under. Both are listed because a citation should credit the person
+# and locate the project.
 authors:
-  - name: "The AxonOS Project"
-    website: "https://axonos.org"
   - family-names: "Yermakou"
     given-names: "Denis"
+    email: "connect@axonos.org"
+    website: "https://axonos.org"
+  - name: "The AxonOS Project"
+    website: "https://axonos.org"
 keywords:
   - brain-computer-interface
   - signal-processing

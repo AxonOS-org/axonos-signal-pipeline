@@ -1,10 +1,10 @@
-# Limitations (v0.6.0)
+# Limitations (v0.8.0)
 
 Read this before drawing any conclusion from this repository.
 
 ## The pipeline is deterministic machinery, not a tuned system
 
-Through v0.6.0 every stage of the path — DSP, features, classifier inference,
+Through v0.8.0 every stage of the path — DSP, features, classifier inference,
 and calibration — is implemented as **deterministic, vector-pinned machinery**.
 What is *not* here is any trained model, tuned design, or measured performance.
 Specifically:
@@ -63,3 +63,9 @@ through their own code, nor do they constitute consent enforcement — that is
 ---
 
 The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org · github.com/AxonOS-org
+
+---
+
+<sub>**AxonOS Signal Pipeline v0.8.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](../NOTICE)
+for attribution terms · connect@axonos.org</sub>

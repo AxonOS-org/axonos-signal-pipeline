@@ -5,7 +5,7 @@
 **Reference deterministic BCI signal pipeline for AxonOS** — the executable, vector-pinned path from a raw acquisition frame to a typed, consent-bound decision.
 
 [![ci](https://github.com/AxonOS-org/axonos-signal-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/AxonOS-org/axonos-signal-pipeline/actions/workflows/ci.yml)
-[![release](https://img.shields.io/badge/release-v0.6.0-6af6ff)](https://github.com/AxonOS-org/axonos-signal-pipeline/releases)
+[![release](https://img.shields.io/badge/release-v0.8.0-6af6ff)](https://github.com/AxonOS-org/axonos-signal-pipeline/releases)
 [![license](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue)](#licensing)
 [![rust](https://img.shields.io/badge/rust-1.75%2B-dea584)](Cargo.toml)
 [![no_std](https://img.shields.io/badge/no__std-yes-2ea44f)](#properties)
@@ -45,7 +45,7 @@ surface for the AxonOS signal-processing contract. See
 
 ## Status
 
-`axonos-pipeline-core` v0.6.0 — the **type contract, conformance surface,
+`axonos-pipeline-core` v0.8.0 — the **type contract, conformance surface,
 deterministic DSP primitives, and a stateful fixed-point IIR filter bank**
 (a DC blocker, power-line notch, and band-pass presets, alongside the integer
 mean-removal and FIR engines), plus **deterministic fixed-point feature
@@ -60,7 +60,9 @@ accuracy, latency, or power figure anywhere in this repository.
 | v0.3.0 | Stateful fixed-point IIR filter bank: a DC blocker, power-line notch (50/60 Hz), and band-pass presets (motor-intent / attention / safety-wide) over 250/500/1000 Hz, each with `step` / `process` / `reset` / `state_hash` and pinned `biquad` / `dc_blocker` vectors | shipped |
 | v0.4.0 | Deterministic fixed-point features: variance, log-variance, RMS, abs-mean, zero-crossings (+ `isqrt` / `log2_q16` primitives), pinned `feature` / `log2_q16` / `isqrt` vectors | shipped |
 | v0.5.0 | Classifier inference: minimum-distance-to-mean and linear/LDA decision rules with confidence and abstain — caller-supplied parameters, **no trained model** — pinned `classify_mdm` / `classify_lda` vectors | shipped |
-| **v0.6.0** | Calibration: channel covariance, session mean, drift update, Cholesky reference whitening (`W R Wᵀ = I`), ZeroCalib skeleton, pinned `covariance` / `whiten_cholesky` vectors | **current** |
+| v0.6.0 | Calibration machinery: channel covariance, session mean, drift update, Cholesky reference whitening (`W R Wᵀ = I`), pinned `covariance` / `whiten_cholesky` vectors | shipped |
+| v0.7.0 | Symmetric `R^{-1/2}` aligner (`inverse_sqrt_spd`, `ZeroCalib::aligner`) by Newton–Schulz in integer arithmetic, fixed iteration count | shipped |
+| **v0.8.0** | Attribution and release hygiene across every surface; conformance vectors re-pinned as `v0.8.0`; the proof that alignment reduces inter-subject difference to a residual rotation and cannot remove it | **current** |
 | v0.7.0+ | Deferred refinements: symmetric `R^{-1/2}` Euclidean Alignment, richer artifact flags, spatial filtering | planned |
 
 Each stage ships only once it is covered by conformance vectors and the
@@ -86,7 +88,7 @@ axonos-signal-pipeline/
 ├── fixtures/
 │   └── synthetic/              # deterministic, license-free sample frames
 ├── vectors/
-│   ├── pipeline-vectors-v0.6.0.json
+│   ├── pipeline-vectors-v0.8.0.json
 │   └── SHA256SUMS              # integrity manifest for the vector artifacts
 ├── tools/                      # Python (stdlib-only) generator + CI gates
 └── docs/                       # contract, claims, limitations, boundary, plan
@@ -114,8 +116,8 @@ cargo build -p axonos-pipeline-core --target thumbv7em-none-eabihf
 
 ## Conformance vectors
 
-[`vectors/pipeline-vectors-v0.6.0.json`](vectors/pipeline-vectors-v0.6.0.json)
-is the language-neutral definition of v0.6.0 behaviour: FNV-1a anchors, the
+[`vectors/pipeline-vectors-v0.8.0.json`](vectors/pipeline-vectors-v0.8.0.json)
+is the language-neutral definition of v0.8.0 behaviour: FNV-1a anchors, the
 fixture frame checksum, window-count cases, artifact-scan cases, channel-mask
 column mappings, the DSP cases (`dc_remove`, `fir`), and the stateful IIR
 filter cases (`biquad`, `dc_blocker`) over a shared `filter_signal`. It is
@@ -162,3 +164,9 @@ Please report vulnerabilities privately per [`SECURITY.md`](SECURITY.md)
 ---
 
 The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org · github.com/AxonOS-org
+
+---
+
+<sub>**AxonOS Signal Pipeline v0.8.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](NOTICE)
+for attribution terms · connect@axonos.org</sub>

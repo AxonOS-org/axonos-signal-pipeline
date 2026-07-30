@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+// SPDX-FileCopyrightText: 2026 Denis Yermakou <connect@axonos.org>
+//
+// Part of the AxonOS Signal Pipeline. Dual-licensed Apache-2.0 OR MIT at your
+// option; see LICENSE-APACHE and LICENSE-MIT. Authored by Denis Yermakou for The
+// AxonOS Project — https://axonos.org
+
 //! Pipeline-terminal classifier decision.
 
 use crate::error::PipelineError;

@@ -1,4 +1,4 @@
-# Claims and Evidence Levels (v0.6.0)
+# Claims and Evidence Levels (v0.8.0)
 
 AxonOS separates claims by the strength of evidence behind them. This
 repository asserts **only** machine-checkable (L1) claims. It does not assert
@@ -20,7 +20,7 @@ nothing here should be read as a clinical or regulatory statement.
 
 1. **Determinism.** Every behavioural rule in
    [`PIPELINE_CONTRACT.md`](PIPELINE_CONTRACT.md) is pinned by a vector in
-   `vectors/pipeline-vectors-v0.6.0.json` and exercised by
+   `vectors/pipeline-vectors-v0.8.0.json` and exercised by
    `crates/axonos-pipeline-core/tests/conformance.rs`. The vectors are exactly
    reproducible from `tools/gen_test_vectors.py` (checked by
    `tools/validate_vectors.py` and an integrity manifest).
@@ -95,3 +95,9 @@ plus method under [`VALIDATION_PLAN.md`](VALIDATION_PLAN.md), clearly labelled.
 ---
 
 The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org · github.com/AxonOS-org
+
+---
+
+<sub>**AxonOS Signal Pipeline v0.8.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](../NOTICE)
+for attribution terms · connect@axonos.org</sub>

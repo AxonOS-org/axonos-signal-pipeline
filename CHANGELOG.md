@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.8.0] — 2026-07-30
+
+### Fixed
+- **The 0.7.0 release bumped one file.** `Cargo.toml` said 0.7.0 while the
+  README badge, `CITATION.cff`, the conformance vector filename and its
+  `vector_version`, six normative documents, the calibration module header and
+  the conformance test header all still said 0.6.0. A version that appears in
+  one place and not the others is worse than no version: every other surface
+  becomes a quiet lie about which behaviour it describes. Every occurrence is
+  now 0.8.0, and the vector file is renamed to match rather than left carrying
+  a stale name.
+- **The repository carried no attribution at all.** Seventeen Rust files with
+  no copyright header, nine documents with no notice, and no `NOTICE` file —
+  which Apache-2.0 section 4(d) requires a redistributor to retain, and which
+  cannot be retained if it does not exist. Added: SPDX identifiers and a
+  copyright line naming **Denis Yermakou** in every source file, a `NOTICE`
+  stating authorship, attribution terms, the intellectual-property position and
+  the pre-clinical scope, and a signature footer on every document.
+
+### Changed
+- Conformance vectors are re-pinned as `vectors/pipeline-vectors-v0.8.0.json`
+  with `vector_version: "0.8.0"`. The values are unchanged; the name and the
+  declared version now match the release that ships them.
+- The README roadmap table records 0.6.0 and 0.7.0 as shipped instead of
+  showing 0.6.0 as current — the row had been stale since the aligner landed.
+
 ## [0.7.0] — 2026-07-29
 
 ### Added
