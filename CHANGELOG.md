@@ -13,7 +13,22 @@
   (`empty_line_after_doc_comment`); nothing else would have. The comment is
   re-joined and its text corrected: `ZeroCalib` is no longer a skeleton, and
   what remains unclaimed is a performance property rather than the mechanism.
-- Four `needless_range_loop` warnings in code added in 0.7.0 — two in the
+- **Eight** `needless_range_loop` findings in code added in 0.7.0, in two
+  rounds — and the second round is the interesting one. The first fix passed a
+  local `cargo clippy` and CI failed anyway, because the authoring environment
+  has clippy **1.75** from a distribution package while CI takes **stable**,
+  which was 1.97: twenty-two releases of new lint coverage apart. "Clippy clean
+  locally" is therefore not evidence about CI, and treating it as evidence is
+  what produced a second red build.
+
+  Rather than guess which remaining instances a newer lint would catch, the
+  pattern is removed from this release's code entirely: every `for i in 0..N`
+  over a slice is now an iterator, including the pairs CI did *not* flag. Two
+  symmetry assertions that each wrote the same nested loop are replaced by one
+  `assert_symmetric` helper, which removes the duplication that made the defect
+  appear twice.
+
+  The original four `needless_range_loop` warnings — two in the
   inverse-square-root routine, two in its test helpers. Rewritten to iterate
   the thing being indexed, which in the matrix product also says what the
   arithmetic means instead of restating an index twice.

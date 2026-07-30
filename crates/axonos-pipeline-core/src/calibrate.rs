@@ -614,6 +614,24 @@ mod inverse_sqrt_tests {
 
     const Q: i64 = 1 << WHITEN_SHIFT;
 
+    /// Assert a matrix equals its own transpose to a tolerance.
+    ///
+    /// Two call sites needed this and both wrote it as a nested range loop over
+    /// the same matrix, which is the shape `clippy::needless_range_loop` exists
+    /// to reject: the index served no purpose but indexing. Iterating the rows
+    /// says the same thing and says it once.
+    fn assert_symmetric<const C: usize>(m: &[[i64; C]; C], tol: i64, what: &str) {
+        for (i, row) in m.iter().enumerate() {
+            for (j, &v) in row.iter().enumerate() {
+                let mirrored = m[j][i];
+                assert!(
+                    (v - mirrored).abs() <= tol,
+                    "{what}: asymmetric at {i},{j}: {v} vs {mirrored}"
+                );
+            }
+        }
+    }
+
     /// `W R Wᵀ`, in Q0, for checking against the identity.
     fn round_trip<const C: usize>(w: &[[i64; C]; C], r: &[[i64; C]; C]) -> [[f64; C]; C] {
         let wf = |x: i64| x as f64 / Q as f64;
@@ -667,16 +685,7 @@ mod inverse_sqrt_tests {
     fn the_result_is_symmetric_which_the_cholesky_factor_is_not() {
         let r = [[2500i64, 900, 300], [900, 1600, 400], [300, 400, 1200]];
         let sym = inverse_sqrt_spd(&r, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS).unwrap();
-        for i in 0..3 {
-            for j in 0..3 {
-                assert!(
-                    (sym[i][j] - sym[j][i]).abs() <= 2,
-                    "asymmetric at {i},{j}: {} vs {}",
-                    sym[i][j],
-                    sym[j][i]
-                );
-            }
-        }
+        assert_symmetric(&sym, 2, "inverse_sqrt_spd");
         let chol = whiten_cholesky(&r).unwrap();
         let triangular = chol[0][1] == 0 && chol[0][2] == 0 && chol[1][2] == 0;
         assert!(
@@ -721,9 +730,9 @@ mod inverse_sqrt_tests {
         let r = [[2500i64, 900], [900, 1600]];
         let a = inverse_sqrt_spd(&r, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS).unwrap();
         let b = inverse_sqrt_spd(&r, DEFAULT_SHRINKAGE_PPM, ALIGN_ITERATIONS + 8).unwrap();
-        for i in 0..2 {
-            for j in 0..2 {
-                assert!((a[i][j] - b[i][j]).abs() <= 1, "not converged at {i},{j}");
+        for (i, (arow, brow)) in a.iter().zip(b.iter()).enumerate() {
+            for (j, (&av, &bv)) in arow.iter().zip(brow.iter()).enumerate() {
+                assert!((av - bv).abs() <= 1, "not converged at {i},{j}");
             }
         }
     }
@@ -761,11 +770,7 @@ mod inverse_sqrt_tests {
         }
         assert_eq!(zc.count(), 4);
         let w = zc.aligner(DEFAULT_SHRINKAGE_PPM).unwrap();
-        for i in 0..3 {
-            for j in 0..3 {
-                assert!((w[i][j] - w[j][i]).abs() <= 2, "aligner must be symmetric");
-            }
-        }
+        assert_symmetric(&w, 2, "ZeroCalib::aligner");
     }
 
     #[test]
@@ -778,14 +783,11 @@ mod inverse_sqrt_tests {
         let chol = whiten_cholesky(&r).unwrap();
         assert!(max_dev_from_identity(&round_trip(&sym, &r)) < 0.05);
         assert!(max_dev_from_identity(&round_trip(&chol, &r)) < 0.05);
-        let mut differs = false;
-        for i in 0..3 {
-            for j in 0..3 {
-                if (sym[i][j] - chol[i][j]).abs() > 16 {
-                    differs = true;
-                }
-            }
-        }
+        let differs = sym.iter().zip(chol.iter()).any(|(srow, crow)| {
+            srow.iter()
+                .zip(crow.iter())
+                .any(|(&s, &c)| (s - c).abs() > 16)
+        });
         assert!(differs, "the two whiteners must not coincide");
     }
 }
