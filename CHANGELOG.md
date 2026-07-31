@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.2] — 2026-07-30
+
+### Fixed
+- **The roadmap marked two releases as `current` at once.** v0.8.0 and v0.9.0
+  both carried the label, which is not a state a repository can be in — and it
+  is the table a reader consults precisely to learn which one they are looking
+  at. v0.8.0 is recorded as shipped, where it belongs, and the current row now
+  names the release that actually ships.
+
 ## [0.9.1] — 2026-07-30
 
 ### Fixed

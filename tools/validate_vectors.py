@@ -50,7 +50,7 @@ def main() -> int:
             actual = hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()
             check(actual == digest, f"SHA256SUMS entry: {rel}")
 
-    vec = json.loads((ROOT / "vectors" / "pipeline-vectors-v0.9.1.json").read_text())
+    vec = json.loads((ROOT / "vectors" / "pipeline-vectors-v0.9.2.json").read_text())
     meta = vec.get("_meta", {})
     check(
         meta.get("maintainer") == "The AxonOS Project <connect@axonos.org>",

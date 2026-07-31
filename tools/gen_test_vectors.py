@@ -2,7 +2,7 @@
 """Single source of truth for v0.8.0 conformance vectors.
 
 Generates, deterministically and from first principles:
-  vectors/pipeline-vectors-v0.9.1.json
+  vectors/pipeline-vectors-v0.9.2.json
   fixtures/synthetic/frame-0001.json
   crates/axonos-pipeline-core/tests/data/vectors.rs
   vectors/SHA256SUMS   (covers the JSON artifacts above)
@@ -27,7 +27,7 @@ FNV_OFFSET = 0xCBF29CE484222325
 FNV_PRIME = 0x100000001B3
 MASK64 = (1 << 64) - 1
 
-VECTOR_VERSION = "0.9.1"
+VECTOR_VERSION = "0.9.2"
 DATE = "2026-06-20"
 
 # Fixture frame parameters (LCG: Numerical Recipes constants).
