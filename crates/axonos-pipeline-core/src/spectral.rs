@@ -154,11 +154,7 @@ pub fn goertzel_power(
         // a saturated bin reports "very large", which is true, where a wrapped
         // one reports a plausible small number, which is not.
         const LIMIT: i64 = 1 << 40;
-        if s1 > LIMIT {
-            s1 = LIMIT;
-        } else if s1 < -LIMIT {
-            s1 = -LIMIT;
-        }
+        s1 = s1.clamp(-LIMIT, LIMIT);
     }
     let a = s1 >> scale_shift;
     let b = s2 >> scale_shift;

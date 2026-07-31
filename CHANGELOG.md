@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.1] — 2026-07-30
+
+### Fixed
+- **A hand-written saturation guard that clippy names better than I did.** The
+  Goertzel recurrence bounded its state with an `if`/`else if` pair; `clamp` says
+  the same thing in one expression and cannot be got wrong by editing one arm.
+  Caught by CI's clippy at 1.97 and invisible to the 1.75 available where this
+  was written — the same version gap that produced the 0.8.0 round, now with the
+  pattern removed rather than the instance patched.
+
 ## [0.9.0] — 2026-07-30
 
 Twelve capabilities, closing every item the roadmap had carried as deferred.

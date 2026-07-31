@@ -20,7 +20,7 @@ nothing here should be read as a clinical or regulatory statement.
 
 1. **Determinism.** Every behavioural rule in
    [`PIPELINE_CONTRACT.md`](PIPELINE_CONTRACT.md) is pinned by a vector in
-   `vectors/pipeline-vectors-v0.9.0.json` and exercised by
+   `vectors/pipeline-vectors-v0.9.1.json` and exercised by
    `crates/axonos-pipeline-core/tests/conformance.rs`. The vectors are exactly
    reproducible from `tools/gen_test_vectors.py` (checked by
    `tools/validate_vectors.py` and an integrity manifest).
@@ -98,6 +98,6 @@ The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org ·
 
 ---
 
-<sub>**AxonOS Signal Pipeline v0.9.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+<sub>**AxonOS Signal Pipeline v0.9.1** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
 authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](../NOTICE)
 for attribution terms · connect@axonos.org</sub>

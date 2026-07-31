@@ -55,6 +55,6 @@ version 2.1, available at
 
 ---
 
-<sub>**AxonOS Signal Pipeline v0.9.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+<sub>**AxonOS Signal Pipeline v0.9.1** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
 authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](NOTICE)
 for attribution terms · connect@axonos.org</sub>
