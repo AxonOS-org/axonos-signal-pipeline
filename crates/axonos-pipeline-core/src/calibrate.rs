@@ -791,3 +791,266 @@ mod inverse_sqrt_tests {
         assert!(differs, "the two whiteners must not coincide");
     }
 }
+
+// ── v0.9.0: online adaptation ───────────────────────────────────────────────
+
+/// Observations between whitener refreshes, by default.
+///
+/// At 250 SPS with one-second epochs this is a refresh roughly every two
+/// minutes, which tracks electrode settling without recomputing constantly.
+pub const DEFAULT_REFRESH_EVERY: u32 = 120;
+
+/// A whitener that tracks a drifting session, with the cost made visible.
+///
+/// [`ZeroCalib`] accumulates covariance and computes a whitener when asked. That
+/// is correct and it is not enough for a session that lasts: electrodes settle,
+/// gel spreads, a subject shifts, and a whitener computed in the first minute
+/// describes a head that is no longer there.
+///
+/// The obvious design — recompute inside the accessor — is the one this must not
+/// have. [`inverse_sqrt_spd`] is fourteen iterations of matrix multiplication,
+/// and a real-time chain that pays that cost at an unpredictable moment has no
+/// worst-case execution time worth stating. RFC-0008 exists because that figure
+/// has to mean something.
+///
+/// So refreshing is explicit. [`OnlineAligner::aligner`] is cheap and always
+/// returns a whitener computed from real observations;
+/// [`OnlineAligner::refresh_due`] says whether it has gone stale, and
+/// [`OnlineAligner::refresh`] pays the cost at a moment the caller chose. The
+/// staleness is readable at any time, so a decoder can weigh how much to trust
+/// the alignment instead of assuming it is current.
+///
+/// Refresh is driven by **observation count**, never by a clock. A time-based
+/// policy would make the same input produce different output on a slower
+/// machine, which would end determinism and every conformance claim resting on
+/// it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OnlineAligner<const C: usize> {
+    calib: ZeroCalib<C>,
+    whitener: Option<[[i64; C]; C]>,
+    computed_at: u32,
+    refresh_every: u32,
+    shrinkage_ppm: u32,
+    refreshes: u32,
+}
+
+impl<const C: usize> Default for OnlineAligner<C> {
+    fn default() -> Self {
+        Self::new(DEFAULT_REFRESH_EVERY, DEFAULT_SHRINKAGE_PPM)
+    }
+}
+
+impl<const C: usize> OnlineAligner<C> {
+    /// A tracker with no observations and no whitener yet.
+    ///
+    /// `refresh_every` of zero means never refresh automatically — the caller
+    /// drives it entirely, which is the right choice for an offline replay where
+    /// a single whitener over the whole recording is what is wanted.
+    pub const fn new(refresh_every: u32, shrinkage_ppm: u32) -> Self {
+        Self {
+            calib: ZeroCalib::new(),
+            whitener: None,
+            computed_at: 0,
+            refresh_every,
+            shrinkage_ppm,
+            refreshes: 0,
+        }
+    }
+
+    /// Fold in one covariance. Cheap: accumulation only, never a recompute.
+    pub fn observe(&mut self, cov: &[[i64; C]; C]) {
+        self.calib.observe(cov);
+    }
+
+    /// Observations accumulated.
+    pub fn count(&self) -> u32 {
+        self.calib.count()
+    }
+
+    /// Observations since the whitener in hand was computed.
+    ///
+    /// Equal to [`OnlineAligner::count`] while there is no whitener, which is
+    /// the honest answer: everything observed so far is unrepresented.
+    pub fn staleness(&self) -> u32 {
+        self.calib.count().saturating_sub(self.computed_at)
+    }
+
+    /// Whether the policy says a refresh is owed.
+    pub fn refresh_due(&self) -> bool {
+        if self.whitener.is_none() {
+            return self.calib.count() > 0;
+        }
+        self.refresh_every > 0 && self.staleness() >= self.refresh_every
+    }
+
+    /// Recompute the whitener from everything observed. This is the expensive
+    /// call, and it is the caller's to schedule.
+    ///
+    /// Returns `false` when there is nothing to compute from, leaving any
+    /// previous whitener in place — a failed refresh must not discard a good
+    /// alignment.
+    pub fn refresh(&mut self) -> bool {
+        match self.calib.aligner(self.shrinkage_ppm) {
+            Some(w) => {
+                self.whitener = Some(w);
+                self.computed_at = self.calib.count();
+                self.refreshes = self.refreshes.saturating_add(1);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The whitener in hand, if one has been computed. Cheap and constant-time.
+    pub fn aligner(&self) -> Option<&[[i64; C]; C]> {
+        self.whitener.as_ref()
+    }
+
+    /// How many refreshes have been paid for. Exposed because it is the term a
+    /// timing budget needs: refreshes per session, not per frame.
+    pub fn refreshes(&self) -> u32 {
+        self.refreshes
+    }
+}
+
+#[cfg(test)]
+mod online_tests {
+    use super::*;
+
+    fn cov(scale: i64) -> [[i64; 3]; 3] {
+        [
+            [2500 * scale, 900 * scale, 300 * scale],
+            [900 * scale, 1600 * scale, 400 * scale],
+            [300 * scale, 400 * scale, 1200 * scale],
+        ]
+    }
+
+    #[test]
+    fn nothing_is_offered_before_anything_is_observed() {
+        let a = OnlineAligner::<3>::default();
+        assert!(a.aligner().is_none());
+        assert!(!a.refresh_due(), "nothing observed, so nothing is owed");
+        assert_eq!(a.staleness(), 0);
+    }
+
+    #[test]
+    fn the_first_observation_makes_a_refresh_due() {
+        let mut a = OnlineAligner::<3>::default();
+        a.observe(&cov(1));
+        assert!(a.refresh_due());
+        assert_eq!(a.staleness(), 1, "one observation is unrepresented");
+        assert!(a.refresh());
+        assert!(a.aligner().is_some());
+        assert_eq!(a.staleness(), 0);
+        assert!(!a.refresh_due());
+    }
+
+    #[test]
+    fn the_accessor_never_recomputes() {
+        // The whole point: reading the whitener must be cheap and must not
+        // silently spend a matrix product inside a real-time budget.
+        let mut a = OnlineAligner::<3>::new(4, DEFAULT_SHRINKAGE_PPM);
+        a.observe(&cov(1));
+        a.refresh();
+        let before = a.refreshes();
+        for _ in 0..50 {
+            let _ = a.aligner();
+        }
+        assert_eq!(a.refreshes(), before, "aligner() must not refresh");
+    }
+
+    #[test]
+    fn staleness_accumulates_and_the_policy_notices() {
+        let mut a = OnlineAligner::<3>::new(4, DEFAULT_SHRINKAGE_PPM);
+        a.observe(&cov(1));
+        a.refresh();
+        for i in 1..4 {
+            a.observe(&cov(1));
+            assert_eq!(a.staleness(), i);
+            assert!(!a.refresh_due(), "not yet at the threshold");
+        }
+        a.observe(&cov(1));
+        assert!(
+            a.refresh_due(),
+            "four new observations is the declared policy"
+        );
+    }
+
+    #[test]
+    fn a_zero_policy_leaves_scheduling_entirely_to_the_caller() {
+        let mut a = OnlineAligner::<3>::new(0, DEFAULT_SHRINKAGE_PPM);
+        a.observe(&cov(1));
+        a.refresh();
+        for _ in 0..1_000 {
+            a.observe(&cov(2));
+        }
+        assert!(!a.refresh_due(), "never automatic when the policy is zero");
+        assert_eq!(a.staleness(), 1_000, "and the cost of that is readable");
+    }
+
+    #[test]
+    fn a_refresh_tracks_a_changing_session() {
+        // The covariance scale doubles partway through; the refreshed whitener
+        // must differ from the first one, or nothing was tracked.
+        let mut a = OnlineAligner::<3>::new(2, DEFAULT_SHRINKAGE_PPM);
+        for _ in 0..4 {
+            a.observe(&cov(1));
+        }
+        a.refresh();
+        let first = *a.aligner().unwrap();
+        for _ in 0..40 {
+            a.observe(&cov(9));
+        }
+        assert!(a.refresh_due());
+        a.refresh();
+        assert_ne!(&first, a.aligner().unwrap(), "the whitener must have moved");
+    }
+
+    #[test]
+    fn a_failed_refresh_keeps_the_good_whitener() {
+        let mut a = OnlineAligner::<3>::default();
+        a.observe(&cov(1));
+        assert!(a.refresh());
+        let good = *a.aligner().unwrap();
+        // A degenerate accumulator cannot produce a whitener; the previous one
+        // must survive rather than being discarded.
+        let mut broken = OnlineAligner::<3>::default();
+        assert!(!broken.refresh());
+        assert!(broken.aligner().is_none());
+        assert_eq!(a.aligner().unwrap(), &good);
+    }
+
+    #[test]
+    fn the_whitener_is_symmetric_like_the_one_it_comes_from() {
+        let mut a = OnlineAligner::<3>::default();
+        for _ in 0..3 {
+            a.observe(&cov(1));
+        }
+        a.refresh();
+        let w = a.aligner().unwrap();
+        for (i, row) in w.iter().enumerate() {
+            for (j, &v) in row.iter().enumerate() {
+                assert!((v - w[j][i]).abs() <= 2, "asymmetric at {i},{j}");
+            }
+        }
+    }
+
+    #[test]
+    fn refresh_decisions_depend_on_data_and_not_on_a_clock() {
+        // Same observations, same decisions, every time — which a time-based
+        // policy could not promise and which every conformance claim needs.
+        let run = || {
+            let mut a = OnlineAligner::<3>::new(3, DEFAULT_SHRINKAGE_PPM);
+            let mut log = [false; 12];
+            for (i, slot) in log.iter_mut().enumerate() {
+                a.observe(&cov((i as i64 % 3) + 1));
+                *slot = a.refresh_due();
+                if *slot {
+                    a.refresh();
+                }
+            }
+            (log, a.refreshes(), *a.aligner().unwrap())
+        };
+        assert_eq!(run(), run());
+    }
+}

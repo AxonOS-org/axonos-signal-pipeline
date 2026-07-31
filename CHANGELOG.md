@@ -1,5 +1,88 @@
 # Changelog
 
+## [0.9.0] — 2026-07-30
+
+Twelve capabilities, closing every item the roadmap had carried as deferred.
+The roadmap row that listed them is gone — not edited, gone: three of the three
+things it called planned had already shipped, which made it the most misleading
+line in the repository.
+
+### Added — spatial (`spatial.rs`)
+1. **Re-referencing**: common average, single channel, and the average of a
+   nominated set. A recording is only ever a potential *difference*, so the
+   reference is a choice that changes every number downstream; it now happens at
+   a declared point instead of wherever a caller reaches for it. CAR documents
+   its own known cost: below roughly eight channels the average is dominated by
+   whichever channels are active, and that is distortion, not rounding.
+2. **Caller-supplied spatial filters** — the shape CSP, xDAWN and Laplacian
+   montages all take, including dimension-reducing projections. This crate does
+   not *learn* such a matrix; learning one needs labels and would be a decoder,
+   which `CLAIMS.md` does not claim. It executes one exactly, so a matrix trained
+   anywhere runs here reproducibly.
+3. **Per-epoch baseline removal** with the baseline length passed explicitly, so
+   the ordering that every implementation gets wrong — measure *before* the
+   window of interest, subtract from the whole epoch — is part of the call rather
+   than a convention.
+
+### Added — artifact screening (`artifact.rs`)
+4. **Findings as independent bits**: saturation, amplitude, slew, flatline,
+   drift. `ArtifactFlag` answers "is this clean" with three ordered values and
+   its vectors are pinned, so it is untouched. It could not answer the question a
+   rejection actually raises, which is *why*: a rail and a loose electrode need
+   different responses from whoever is wearing the device. Findings are a set
+   because they co-occur — a loose electrode drifts *and* flatlines.
+5. **Per-channel screening** of an interleaved block. One loose electrode should
+   cost one channel, not the epoch.
+6. **A disqualification rule that is argued rather than assumed**: saturation,
+   flatline and slew disqualify; amplitude excess and drift are reported and do
+   not. A real evoked response can exceed a conservative threshold, and
+   discarding it would bias a decoder against exactly the epochs carrying
+   information.
+
+### Added — calibration (`calibrate.rs`)
+7. **Online adaptation** — the last deferred item. Electrodes settle, gel
+   spreads, a subject shifts, and a whitener from the first minute describes a
+   head that is no longer there.
+8. **The refresh cost is explicit, not hidden in an accessor.** Recomputing is
+   fourteen iterations of matrix multiplication, and a real-time chain that pays
+   that at an unpredictable moment has no worst case worth stating. Reading the
+   whitener is cheap and never recomputes; staleness is readable at any time;
+   refreshing is the caller's to schedule. Refresh is driven by observation
+   count and **never by a clock**, because a time-based policy would make the
+   same input produce different output on a slower machine.
+
+### Added — spectral (`spectral.rs`)
+9. **Narrowband power by Goertzel** rather than an FFT. Two of the three
+   paradigms this pipeline serves are frequency questions needing a handful of
+   specific bins, and four recurrences over a 1024-sample window cost a fraction
+   of a 1024-point transform whose 1020 unused bins are discarded.
+10. **Coefficient computation at configuration time**, with an integer cosine
+    accurate to one count in ~31 700 against the closed form, kept deliberately
+    off the sample path. A frequency at or above Nyquist is refused rather than
+    given a coefficient that would look like an answer.
+11. **A bank for multi-target decisions and a permille power ratio.** The bank
+    returns numbers; the argmax is the caller's, because choosing a target is a
+    decision and decisions belong above this crate. A ratio with a zero
+    denominator returns `None` — an absent measurement is not a large ratio.
+
+### Added — rate (`rate.rs`)
+12. **Decimation with an anti-alias guard.** Dropping samples folds everything
+    above the new Nyquist into the band that survives, and folded energy is
+    indistinguishable from signal once it has landed. `decimate_checked` requires
+    the caller to state the band limit they have filtered to and refuses the call
+    when the decimated Nyquist does not exceed it — so a decimation appears in
+    review with its justification attached rather than as a bare stride. The raw
+    form is named `decimate_unfiltered` for what it is.
+
+### Fixed
+- **`validate_vectors.py` compared against a hardcoded `"0.8.0"`** and was
+  already one release stale before anyone noticed. It now derives the expected
+  version from `Cargo.toml` and the generator's declaration and checks the three
+  agree — a validator that repeats a number is one more place for it to drift,
+  and drift is precisely what it exists to catch. Verified in both directions: a
+  deliberately falsified version is rejected.
+- The roadmap's `planned` row listed three shipped features.
+
 ## [0.8.0] — 2026-07-30
 
 ### Fixed

@@ -24,8 +24,9 @@ Specifically:
   caller-supplied and the only property asserted is determinism.
 - Calibration (v0.7.0) implements covariance, session mean, drift update,
   Cholesky reference whitening, and the symmetric `R^{-1/2}` aligner
-  (`inverse_sqrt_spd`, `ZeroCalib::aligner`). Online adaptation is still
-  deferred. The aligner is a **transform, not a decoder**: it provably reduces
+  (`inverse_sqrt_spd`, `ZeroCalib::aligner`). Online adaptation shipped in v0.9.0
+  (`OnlineAligner`), with the refresh cost explicit rather than hidden in an
+  accessor. The aligner is a **transform, not a decoder**: it provably reduces
   inter-subject difference to a residual orthogonal factor and does not remove
   it, so no transfer or accuracy property is claimed
   ([`CALIBRATION.md`](CALIBRATION.md)).
@@ -66,6 +67,6 @@ The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org ·
 
 ---
 
-<sub>**AxonOS Signal Pipeline v0.8.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+<sub>**AxonOS Signal Pipeline v0.9.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
 authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](../NOTICE)
 for attribution terms · connect@axonos.org</sub>

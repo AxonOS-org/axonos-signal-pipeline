@@ -1,4 +1,4 @@
-# Calibration (v0.8.0)
+# Calibration (v0.9.0)
 
 Calibration reduces inter-session covariate shift before classification. As of
 v0.8.0 the **deterministic machinery** is implemented and vector-pinned in
@@ -6,7 +6,7 @@ v0.8.0 the **deterministic machinery** is implemented and vector-pinned in
 transforms** with no accuracy, transfer, or convergence claim
 ([`CLAIMS.md`](CLAIMS.md)).
 
-## Implemented (v0.8.0)
+## Implemented (v0.9.0)
 
 - **Channel covariance** (`covariance`). Mean-removed
   `cov[i][j] = Σ(xᵢ−x̄ᵢ)(xⱼ−x̄ⱼ)/N`, integer accumulation. Pinned by the
@@ -39,7 +39,7 @@ transforms** with no accuracy, transfer, or convergence claim
 ## Constraints carried from the contract
 
 - Every calibration step is a **pure function of its declared inputs** (the
-  v0.8.0 falsifier in [`VALIDATION_PLAN.md`](VALIDATION_PLAN.md)).
+  v0.6.0 falsifier in [`VALIDATION_PLAN.md`](VALIDATION_PLAN.md)).
 - The fixed-point feature path (v0.4.0) precedes calibration, so alignment runs
   on deterministic features.
 - No calibration step exposes raw signal across the application boundary
@@ -102,6 +102,6 @@ through the same montage, which is an experiment, not an implementation.
 
 ---
 
-<sub>**AxonOS Signal Pipeline v0.8.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+<sub>**AxonOS Signal Pipeline v0.9.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
 authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](../NOTICE)
 for attribution terms · connect@axonos.org</sub>

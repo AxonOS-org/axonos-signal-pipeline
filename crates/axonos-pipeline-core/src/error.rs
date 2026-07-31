@@ -33,6 +33,13 @@ pub enum PipelineError {
     OutputLengthMismatch,
     /// A fixed-point shift amount is out of range (must be `0..=31`).
     InvalidShift,
+    /// A decimation factor of zero, or one that would leave no samples.
+    InvalidDecimation,
+    /// The decimated rate's Nyquist does not exceed the band limit the caller
+    /// declared, so content above it would fold into the surviving band —
+    /// indistinguishable from signal once it has landed, and undetectable by
+    /// every stage after this one.
+    AliasingRisk,
     /// A sample rate has no tabulated filter design.
     UnsupportedSampleRate,
     /// A fixed-point filter coefficient is outside its valid range.
@@ -58,6 +65,11 @@ impl fmt::Display for PipelineError {
             Self::EmptyKernel => "filter kernel has no coefficients",
             Self::OutputLengthMismatch => "output buffer length does not match input length",
             Self::InvalidShift => "fixed-point shift amount must be in 0..=31",
+            Self::InvalidDecimation => "decimation factor is zero or would leave no samples",
+            Self::AliasingRisk => {
+                "the decimated Nyquist does not exceed the declared band limit; \
+content above it would fold into the surviving band"
+            }
             Self::UnsupportedSampleRate => "sample rate has no tabulated filter design",
             Self::InvalidCoefficient => "fixed-point filter coefficient is out of range",
             Self::DimensionMismatch => "vectors have mismatched dimensions",

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -49,7 +50,7 @@ def main() -> int:
             actual = hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()
             check(actual == digest, f"SHA256SUMS entry: {rel}")
 
-    vec = json.loads((ROOT / "vectors" / "pipeline-vectors-v0.8.0.json").read_text())
+    vec = json.loads((ROOT / "vectors" / "pipeline-vectors-v0.9.0.json").read_text())
     meta = vec.get("_meta", {})
     check(
         meta.get("maintainer") == "The AxonOS Project <connect@axonos.org>",
@@ -57,7 +58,22 @@ def main() -> int:
     )
     check(meta.get("security_contact") == "security@axonos.org", "_meta.security_contact")
     check(meta.get("license") == "CC0-1.0", "_meta.license is CC0-1.0")
-    check(meta.get("vector_version") == "0.8.0", "_meta.vector_version")
+    # Derived, never a literal. A hardcoded version here was already stale by
+    # one release before anyone noticed, because a validator that repeats a
+    # number is one more place for it to drift — and the thing it validates is
+    # precisely that numbers do not drift.
+    crate_ver = re.search(r'^version = "(.+)"', (ROOT / "Cargo.toml").read_text(), re.M)
+    gen_ver = re.search(
+        r'^VECTOR_VERSION = "(.+)"', (ROOT / "tools" / "gen_test_vectors.py").read_text(), re.M
+    )
+    check(crate_ver is not None, "Cargo.toml declares a version")
+    check(gen_ver is not None, "the generator declares VECTOR_VERSION")
+    if crate_ver and gen_ver:
+        check(gen_ver.group(1) == crate_ver.group(1), "generator version tracks the crate")
+        check(
+            meta.get("vector_version") == crate_ver.group(1),
+            "_meta.vector_version tracks the crate",
+        )
 
     print("OK" if FAIL == 0 else "FAILED")
     return FAIL

@@ -43,6 +43,8 @@ pub mod filter;
 pub mod frame;
 pub mod mask;
 pub mod rate;
+pub mod spatial;
+pub mod spectral;
 
 pub use artifact::{artifact_scan, ArtifactFlag, ADC24_MAX, ADC24_MIN};
 pub use calibrate::{
