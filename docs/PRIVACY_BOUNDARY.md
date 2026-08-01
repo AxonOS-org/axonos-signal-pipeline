@@ -50,6 +50,6 @@ The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org ·
 
 ---
 
-<sub>**AxonOS Signal Pipeline v0.9.2** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+<sub>**AxonOS Signal Pipeline v0.9.3** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
 authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](../NOTICE)
 for attribution terms · connect@axonos.org</sub>

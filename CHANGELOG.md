@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.9.3] — 2026-08-01
+
+### Added
+- **Seven Kani bounded-model-checking harnesses.** The kernel carries thirty
+  machine-checked proofs and the consent crate six; this crate carried none —
+  and it is the one holding the fixed-point arithmetic, where a defect does not
+  panic. An overflow in a filter produces a plausible number, a later stage
+  smooths it, a classifier decides on it, and nothing in the chain can tell the
+  value was fiction.
+
+  Every property was chosen because its failure is **silent**. Nothing is proved
+  that a panic would have caught anyway:
+
+  - `pipe_p1` re-referencing clamps rather than wraps — a rail minus a positive
+    mean wraps to a large positive value, which looks like a healthy signal of
+    the opposite polarity, and the screener would then report amplitude rather
+    than saturation, the one finding that does not disqualify an epoch.
+  - `pipe_p2` the common mode is removed exactly, over arbitrary offsets.
+  - `pipe_p3` a refused baseline writes nothing — a partially applied correction
+    leaves early channels carrying an offset the later ones do not.
+  - `pipe_p4` the identity spatial filter is the identity, for every input.
+  - `pipe_p5` spatial filtering saturates on the `i64`→`i32` narrowing.
+  - `pipe_p6` a power ratio is total, and an absent measurement is not a small one.
+  - `pipe_p7` a power ratio is monotone in its numerator.
+
+  Tests sample the input space; these quantify over it. For arithmetic that is
+  the difference that matters: a test of a thousand random inputs says nothing
+  about the thousand-and-first, and the thousand-and-first is what an electrode
+  produces at the moment it comes loose.
+
+### Verification note
+- Kani could not be run in the environment these were written in. Each property
+  was therefore checked two ways before shipping: by exhaustive enumeration of
+  the boundary space and 200 000 random cases against an independent model, and
+  then **against the implementation itself** — 81 boundary pairs for `p1`, 63
+  for `p5`, every zero and rail case for `p4` and `p6`, all agreeing to the
+  count. The harnesses also type-check without Kani installed, so a signature
+  change breaks the build rather than leaving a proof that no longer refers to
+  the code it was written for. The first CI run on the new job is where they are
+  actually proved.
+
 ## [0.9.2] — 2026-07-30
 
 ### Fixed

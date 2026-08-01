@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/axonos-pipeline-core"]
 
 [workspace.package]
-version = "0.9.2"
+version = "0.9.3"
 edition = "2021"
 rust-version = "1.75"
 license = "Apache-2.0 OR MIT"

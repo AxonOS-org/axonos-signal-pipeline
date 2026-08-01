@@ -2,7 +2,7 @@
   "_meta": {
     "title": "AxonOS Signal Pipeline — Conformance Test Vectors",
     "artifact": "pipeline-core type-contract conformance",
-    "vector_version": "0.9.2",
+    "vector_version": "0.9.3",
     "copyright": "2026 Denis Yermakou — authored for The AxonOS Project",
     "license_note": "Vectors are CC0-1.0 so any implementation may use them; the pipeline itself is Apache-2.0 OR MIT. See NOTICE.",
     "producer": "axonos-signal-pipeline",

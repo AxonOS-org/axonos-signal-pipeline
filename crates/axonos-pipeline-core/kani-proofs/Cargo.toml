@@ -1,0 +1,14 @@
+[package]
+name = "axonos-pipeline-core-kani"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "kani-harnesses"
+path = "src/main.rs"
+
+[dependencies]
+axonos-pipeline-core = { path = ".." }
+
+[workspace]

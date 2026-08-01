@@ -108,3 +108,23 @@ jobs:
             echo "::error::version mismatch: Cargo.toml=$cargo_v CITATION.cff=$cite_v"
             exit 1
           fi
+
+  kani:
+    name: Bounded model checking
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Kani
+        run: |
+          cargo install --locked kani-verifier
+          cargo kani setup
+      - name: Prove
+        # Every harness here covers a property whose failure is *silent*: an
+        # overflow in fixed-point arithmetic produces a plausible number, a
+        # later stage smooths it, and nothing downstream can tell the value was
+        # fiction. Tests sample the input space; these quantify over it, which
+        # is the difference that matters for arithmetic.
+        working-directory: crates/axonos-pipeline-core/kani-proofs
+        run: cargo kani --default-unwind 8

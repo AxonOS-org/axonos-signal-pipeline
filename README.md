@@ -5,7 +5,7 @@
 **Reference deterministic BCI signal pipeline for AxonOS** — the executable, vector-pinned path from a raw acquisition frame to a typed, consent-bound decision.
 
 [![ci](https://github.com/AxonOS-org/axonos-signal-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/AxonOS-org/axonos-signal-pipeline/actions/workflows/ci.yml)
-[![release](https://img.shields.io/badge/release-v0.9.2-6af6ff)](https://github.com/AxonOS-org/axonos-signal-pipeline/releases)
+[![release](https://img.shields.io/badge/release-v0.9.3-6af6ff)](https://github.com/AxonOS-org/axonos-signal-pipeline/releases)
 [![license](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue)](#licensing)
 [![rust](https://img.shields.io/badge/rust-1.75%2B-dea584)](Cargo.toml)
 [![no_std](https://img.shields.io/badge/no__std-yes-2ea44f)](#properties)
@@ -45,7 +45,7 @@ surface for the AxonOS signal-processing contract. See
 
 ## Status
 
-`axonos-pipeline-core` v0.9.2 — the **type contract, conformance surface,
+`axonos-pipeline-core` v0.9.3 — the **type contract, conformance surface,
 deterministic DSP primitives, and a stateful fixed-point IIR filter bank**
 (a DC blocker, power-line notch, and band-pass presets, alongside the integer
 mean-removal and FIR engines), plus **deterministic fixed-point feature
@@ -69,6 +69,31 @@ accuracy, latency, or power figure anywhere in this repository.
 Each stage ships only once it is covered by conformance vectors and the
 validation gates in [`docs/VALIDATION_PLAN.md`](docs/VALIDATION_PLAN.md). No
 stage advertises accuracy, latency, or power figures in this repository.
+
+## Bounded model checking
+
+Seven Kani harnesses, in `crates/axonos-pipeline-core/kani-proofs`. Every one
+covers a property whose failure is **silent**; nothing is proved here that a
+panic would have caught anyway.
+
+| Harness | Property | Why it must be proved rather than tested |
+|:--|:--|:--|
+| `pipe_p1` | re-referencing clamps, never wraps | a rail minus a positive mean wraps to a large positive value — which looks like a healthy signal of opposite polarity, and the screener would then report amplitude rather than saturation, the one finding that does not disqualify an epoch |
+| `pipe_p2` | the common mode is removed exactly | this is what a re-reference is *for*, and a wrapping implementation loses it quietly |
+| `pipe_p3` | a refused baseline writes nothing | a partially applied correction leaves early channels carrying an offset the later ones do not, and every channel comparison afterwards is against a number nobody recorded |
+| `pipe_p4` | the identity filter is the identity | the one matrix whose correct answer is known for *all* inputs rather than for the ones someone thought to test |
+| `pipe_p5` | spatial filtering saturates on narrowing | wrapping the `i64`→`i32` narrowing reports strong negative activity where there was strong positive activity |
+| `pipe_p6` | a power ratio is total | `n × 1000` overflows `u64`, and a wrapped ratio is *small* — so an overwhelming band would report as quiet |
+| `pipe_p7` | a power ratio is monotone | every downstream comparison assumes it, and an overflow breaks it silently |
+
+Tests sample the input space; these quantify over it. For arithmetic that is
+the difference that matters: a test of a thousand random covariance matrices
+says nothing about the thousand-and-first, and the thousand-and-first is what
+an electrode produces at the moment it comes loose.
+
+The harnesses type-check without Kani installed, so a signature change breaks
+the build here rather than leaving a proof that no longer refers to the code it
+was written for.
 
 ## Properties
 
@@ -117,7 +142,7 @@ cargo build -p axonos-pipeline-core --target thumbv7em-none-eabihf
 
 ## Conformance vectors
 
-[`vectors/pipeline-vectors-v0.9.2.json`](vectors/pipeline-vectors-v0.9.2.json)
+[`vectors/pipeline-vectors-v0.9.3.json`](vectors/pipeline-vectors-v0.9.3.json)
 is the language-neutral definition of v0.8.0 behaviour: FNV-1a anchors, the
 fixture frame checksum, window-count cases, artifact-scan cases, channel-mask
 column mappings, the DSP cases (`dc_remove`, `fir`), and the stateful IIR
@@ -168,6 +193,6 @@ The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org ·
 
 ---
 
-<sub>**AxonOS Signal Pipeline v0.9.2** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+<sub>**AxonOS Signal Pipeline v0.9.3** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
 authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](NOTICE)
 for attribution terms · connect@axonos.org</sub>
