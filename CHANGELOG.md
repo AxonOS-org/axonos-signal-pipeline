@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.10.0] — 2026-08-08
+
+### Fixed
+- **The Kani job never finished.** It was not a failed proof: the job hit its
+  thirty-minute limit while CBMC was still working on
+  `pipe_p7_power_ratio_is_monotone`, at 22 117 variables and 103 007 clauses.
+  The log said only that the operation was cancelled, which is the least useful
+  thing a red build can say.
+
+  The cause is a 64-by-64 bit division, close to the worst thing a bounded model
+  checker can be asked about. The tempting fix — narrow the inputs until it
+  finishes — would have removed the region the property exists to cover, since
+  `n × 1000` overflows near the top of `u64` and a wrapped ratio is *small*, so
+  an overwhelming band would report as quiet. A proof that passes quickly and
+  checks nothing is worse than one that times out, because it looks like
+  evidence.
+
+  So the numerators stay unbounded and the **divisor** is narrowed to 32 bits.
+  The harness now proves monotonicity for every numerator pair and for divisors
+  up to 2³², and both the harness and the README say so. Divisors above that are
+  covered by tests and not by a proof, and the distinction is written down
+  because a proof whose scope is implied will eventually be quoted wrongly.
+
+### Changed
+- The proofs run **one harness per invocation** instead of all seven in one
+  call, each timed and wrapped in its own log group. When the single call was
+  cancelled, working out which harness was slow — and whether the others had
+  even been attempted — meant reading thirty minutes of solver output. A proof
+  that cannot be attributed is a proof nobody will maintain.
+- The job's limit is 60 minutes, raised from 30. Seven separate proofs need
+  headroom, and a limit that cancels mid-proof produces a red job that says
+  nothing about the code.
+
 ## [0.9.3] — 2026-08-01
 
 ### Added

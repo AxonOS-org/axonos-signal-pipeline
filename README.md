@@ -5,7 +5,7 @@
 **Reference deterministic BCI signal pipeline for AxonOS** — the executable, vector-pinned path from a raw acquisition frame to a typed, consent-bound decision.
 
 [![ci](https://github.com/AxonOS-org/axonos-signal-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/AxonOS-org/axonos-signal-pipeline/actions/workflows/ci.yml)
-[![release](https://img.shields.io/badge/release-v0.9.3-6af6ff)](https://github.com/AxonOS-org/axonos-signal-pipeline/releases)
+[![release](https://img.shields.io/badge/release-v0.10.0-6af6ff)](https://github.com/AxonOS-org/axonos-signal-pipeline/releases)
 [![license](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue)](#licensing)
 [![rust](https://img.shields.io/badge/rust-1.75%2B-dea584)](Cargo.toml)
 [![no_std](https://img.shields.io/badge/no__std-yes-2ea44f)](#properties)
@@ -45,7 +45,7 @@ surface for the AxonOS signal-processing contract. See
 
 ## Status
 
-`axonos-pipeline-core` v0.9.3 — the **type contract, conformance surface,
+`axonos-pipeline-core` v0.10.0 — the **type contract, conformance surface,
 deterministic DSP primitives, and a stateful fixed-point IIR filter bank**
 (a DC blocker, power-line notch, and band-pass presets, alongside the integer
 mean-removal and FIR engines), plus **deterministic fixed-point feature
@@ -84,7 +84,7 @@ panic would have caught anyway.
 | `pipe_p4` | the identity filter is the identity | the one matrix whose correct answer is known for *all* inputs rather than for the ones someone thought to test |
 | `pipe_p5` | spatial filtering saturates on narrowing | wrapping the `i64`→`i32` narrowing reports strong negative activity where there was strong positive activity |
 | `pipe_p6` | a power ratio is total | `n × 1000` overflows `u64`, and a wrapped ratio is *small* — so an overwhelming band would report as quiet |
-| `pipe_p7` | a power ratio is monotone | every downstream comparison assumes it, and an overflow breaks it silently |
+| `pipe_p7` | a power ratio is monotone, for **every** numerator and for divisors up to 2³² | every downstream comparison assumes it, and an overflow breaks it silently. The numerators are deliberately unbounded, because `n × 1000` overflows near the top of `u64` and that is the region worth proving; the divisor is narrowed because 64-by-64 division is not tractable for a bounded model checker, and larger divisors are covered by tests instead |
 
 Tests sample the input space; these quantify over it. For arithmetic that is
 the difference that matters: a test of a thousand random covariance matrices
@@ -142,7 +142,7 @@ cargo build -p axonos-pipeline-core --target thumbv7em-none-eabihf
 
 ## Conformance vectors
 
-[`vectors/pipeline-vectors-v0.9.3.json`](vectors/pipeline-vectors-v0.9.3.json)
+[`vectors/pipeline-vectors-v0.10.0.json`](vectors/pipeline-vectors-v0.10.0.json)
 is the language-neutral definition of v0.8.0 behaviour: FNV-1a anchors, the
 fixture frame checksum, window-count cases, artifact-scan cases, channel-mask
 column mappings, the DSP cases (`dc_remove`, `fir`), and the stateful IIR
@@ -193,6 +193,6 @@ The AxonOS Project · axonos.org · connect@axonos.org · security@axonos.org ·
 
 ---
 
-<sub>**AxonOS Signal Pipeline v0.9.3** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
+<sub>**AxonOS Signal Pipeline v0.10.0** · © 2026 Denis Yermakou · Apache-2.0 OR MIT ·
 authored for [The AxonOS Project](https://axonos.org) · see [NOTICE](NOTICE)
 for attribution terms · connect@axonos.org</sub>

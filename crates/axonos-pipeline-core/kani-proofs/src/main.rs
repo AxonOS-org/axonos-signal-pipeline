@@ -245,14 +245,33 @@ fn pipe_p6_power_ratio_is_total() {
 #[kani::proof]
 #[kani::unwind(3)]
 fn pipe_p7_power_ratio_is_monotone() {
+    // The numerators stay unbounded, and that is the whole point of this
+    // harness. `n * 1000` overflows a `u64` near the top of the range, and a
+    // wrapped ratio is *small* — so an overwhelming band would report as quiet.
+    // Narrowing `a` and `b` to make the solver's life easier would remove
+    // exactly the region the property was written to cover, leaving a proof
+    // that passes quickly and checks nothing.
     let a: u64 = kani::any();
     let b: u64 = kani::any();
-    let d: u64 = kani::any();
-    kani::assume(d > 0);
     kani::assume(a <= b);
-    // Bound the inputs below the saturation point: above it both answers are
-    // u32::MAX and monotonicity holds trivially, which is true but uninformative.
-    kani::assume(b < u64::MAX / 1_000);
+
+    // The divisor is 32-bit, and that is a real limit on what this proves.
+    //
+    // A 64-by-64 bit division is close to the worst thing a bounded model
+    // checker can be asked to reason about. The first version of this harness
+    // took a symbolic `u64` divisor and CBMC was still grinding at 22 117
+    // variables and 103 007 clauses when the job hit its thirty-minute limit —
+    // it did not fail, it never finished, which is the less useful kind of
+    // silence. Halving the divisor's width makes the same property tractable in
+    // minutes.
+    //
+    // So this proves monotonicity for every numerator pair and for divisors up
+    // to 2^32. Denominators above that are covered by the test suite and not by
+    // a proof, and the difference is stated here because a proof whose scope is
+    // implied is a proof that will eventually be quoted wrongly.
+    let d_narrow: u32 = kani::any();
+    kani::assume(d_narrow > 0);
+    let d = d_narrow as u64;
 
     let ra = power_ratio_permille(a, d).expect("d > 0");
     let rb = power_ratio_permille(b, d).expect("d > 0");
