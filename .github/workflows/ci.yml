@@ -110,11 +110,28 @@ jobs:
           fi
 
   kani:
-    name: Bounded model checking
+    name: Prove ${{ matrix.harness }}
     runs-on: ubuntu-latest
-    # Raised from 30. Seven separate proofs need headroom, and a limit that
-    # cancels mid-proof produces a red job that says nothing about the code.
-    timeout-minutes: 60
+    # One runner per harness, in parallel.
+    #
+    # Seven harnesses in one job share one budget sequentially, so the
+    # expensive one starves the rest: p5 consumed a full hour and p6 and p7
+    # never ran at all. Raising the limit was treating the symptom — the defect
+    # is that they were queued behind each other. A matrix gives each the whole
+    # timeout, names the slow one in the job list, and fails only the harness
+    # that fails.
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        harness:
+          - pipe_p1_rereference_never_wraps
+          - pipe_p2_common_mode_is_removed
+          - pipe_p3_baseline_refusal_writes_nothing
+          - pipe_p4_identity_filter_is_identity
+          - pipe_p5_spatial_filter_saturates
+          - pipe_p6_power_ratio_is_total
+          - pipe_p7_power_ratio_is_monotone
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - uses: dtolnay/rust-toolchain@stable
@@ -123,31 +140,8 @@ jobs:
           cargo install --locked kani-verifier
           cargo kani setup
       - name: Prove
-        # One invocation per harness, on purpose.
-        #
-        # The first version ran all seven in a single `cargo kani` call, and
-        # when the job hit its time limit the log said only that the operation
-        # was cancelled. Which harness was slow, and whether the others had even
-        # been attempted, had to be read out of thirty minutes of CBMC output.
-        #
-        # Run separately, each one reports its own time and a stall is named by
-        # the step that stalls. A proof that cannot be attributed is a proof
-        # nobody will maintain.
         working-directory: crates/axonos-pipeline-core/kani-proofs
         run: |
-          set -e
-          for h in \
-            pipe_p1_rereference_never_wraps \
-            pipe_p2_common_mode_is_removed \
-            pipe_p3_baseline_refusal_writes_nothing \
-            pipe_p4_identity_filter_is_identity \
-            pipe_p5_spatial_filter_saturates \
-            pipe_p6_power_ratio_is_total \
-            pipe_p7_power_ratio_is_monotone
-          do
-            echo "::group::$h"
-            start=$SECONDS
-            cargo kani --default-unwind 8 --harness "$h"
-            echo "$h proved in $((SECONDS - start))s"
-            echo "::endgroup::"
-          done
+          start=$SECONDS
+          cargo kani --default-unwind 8 --harness ${{ matrix.harness }}
+          echo "${{ matrix.harness }} proved in $((SECONDS - start))s"

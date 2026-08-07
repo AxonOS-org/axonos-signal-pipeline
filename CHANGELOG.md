@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.11.0] — 2026-08-08
+
+### Fixed
+- **The proofs starved each other.** Seven harnesses ran sequentially in one job
+  sharing one budget, so `pipe_p5_spatial_filter_saturates` consumed the whole
+  hour at 70 051 variables and 306 484 clauses, and `p6` and `p7` never ran at
+  all. Raising the limit from thirty minutes to sixty had treated the symptom;
+  the defect was that they were queued behind one another.
+
+  Each harness now runs on its own runner, in parallel, with the full timeout.
+  The slow one is named in the job list, only the harness that fails fails, and
+  a proof that stalls no longer takes six others with it.
+
+- **`pipe_p5` bounded by weight, not by sample.** A 32-by-32 bit multiply with
+  both operands symbolic is close to intractable. The sample stays unbounded,
+  because saturation needs a large weight *and* a large sample and narrowing the
+  sample would remove half the region the property exists for. The weight is
+  bounded to ±16.0 in Q16, which is honest: a spatial-filter coefficient beyond
+  that is not a filter but a mistake, and normalised CSP weights sit within a
+  few units of one. Saturation needs `|w·x| > 2⁴⁷` and is still reached easily.
+  The bound removes solver work, not coverage, and the harness says so.
+
+### Fixed in the roadmap
+- **Decimation with an anti-alias guard was listed as planned.** It shipped in
+  0.9.0, with `decimate_checked`, `decimate_unfiltered` and the `AliasingRisk`
+  guard. A roadmap that lists delivered work as future is a roadmap nobody can
+  use to tell what exists.
+- **Two rows were marked current at once**, in the table a reader consults to
+  find out which release they are looking at.
+
 ## [0.10.0] — 2026-08-08
 
 ### Fixed

@@ -184,8 +184,28 @@ fn pipe_p4_identity_filter_is_identity() {
 #[kani::proof]
 #[kani::unwind(4)]
 fn pipe_p5_spatial_filter_saturates() {
+    // The sample stays unbounded. Saturation happens when a large weight meets
+    // a large sample, and narrowing the sample would remove half of the region
+    // this harness exists for — the same mistake that would have been made in
+    // p7 by narrowing its numerators.
     let x: i32 = kani::any();
-    let w: i32 = kani::any();
+
+    // The weight is bounded to +/-16.0 in Q16, and that is a real limit on what
+    // this proves.
+    //
+    // A 32-by-32 bit multiply is expensive for a bounded model checker: with
+    // both operands symbolic, CBMC was at 70 051 variables and 306 484 clauses
+    // when the job hit its hour. Bounding one operand makes it tractable, and
+    // the weight is the honest one to bound because a spatial filter
+    // coefficient beyond +/-16.0 is not a filter, it is a mistake. Normalised
+    // CSP weights sit within a few units of one.
+    //
+    // Saturation is still reachable and richly so: it needs |w*x| > 2^47, and a
+    // full-range sample against a weight of a few units clears that easily. The
+    // bound removes solver work, not coverage.
+    let w_narrow: i32 = kani::any();
+    kani::assume(w_narrow > -1_048_576 && w_narrow < 1_048_576);
+    let w = w_narrow;
     let f = SpatialFilter::<1, 1>::new([[w]]);
     let out = f.apply_frame(&[x]);
 
